@@ -1,0 +1,24 @@
+# Un'istanza ttyd per porta: ttyd@8700, ttyd@8701, ... Il numero (%i) e' sia la
+# porta sia il nome della sessione tmux, cosi' non serve una seconda tabella per
+# tenerli allineati. [RR]
+[Unit]
+Description=ttyd terminal instance on port %i
+After=network.target
+
+[Service]
+# -W abilita la scrittura sul TTY: dalla 1.7.0 ttyd e' read-only per default e
+#    senza questo si vede il terminale ma non si puo' digitare.
+# -i 127.0.0.1 lega ttyd alla loopback: l'unico ingresso e' nginx, che fa mTLS.
+#    Senza questo ttyd sarebbe esposto in chiaro e senza autenticazione.
+# tmux new-session -A riattacca la sessione se esiste, altrimenti la crea: e'
+#    quello che rende il terminale persistente fra chiusure del browser. Con
+#    "exit" dalla shell la sessione muore e al riaggancio se ne crea una nuova.
+ExecStart=/usr/bin/ttyd -W -p %i -i 127.0.0.1 tmux new-session -A -s term-%i bash -l
+Restart=always
+RestartSec=2
+User=@UTENTE@
+Group=@GRUPPO@
+WorkingDirectory=~
+
+[Install]
+WantedBy=multi-user.target

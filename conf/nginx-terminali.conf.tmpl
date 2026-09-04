@@ -1,0 +1,79 @@
+# Terminali web: dashboard a tab + N istanze ttyd, dietro mTLS.
+# Generato da install.sh a partire da questo modello: i segnaposto @...@ sono
+# sostituiti con i valori di impostazioni.conf. Non modificare la copia
+# installata, si perde al prossimo install.sh: si modifica il modello. [RR]
+
+# Un upstream per istanza ttyd: ttyd ascolta solo su 127.0.0.1, l'unico modo
+# per arrivarci e' passare da qui.
+@BLOCCHI_UPSTREAM@
+
+server {
+    # http2 e' utile con dieci websocket aperte insieme.
+    # Su nginx >= 1.25 la forma corretta e' "listen 443 ssl;" + "http2 on;".
+    listen 443 ssl http2;
+    server_name @DOMINIO@;
+
+    # --- TLS del server -------------------------------------------------------
+    ssl_certificate         @SSL_CRT@;
+    ssl_certificate_key     @SSL_KEY@;
+
+    # --- mTLS: l'autenticazione del servizio ----------------------------------
+    # ssl_client_certificate e' la CA che firma i certificati dei client
+    # (browser, telefono). 'optional' invece di 'on' NON e' un permesso: la
+    # connessione entra anche senza certificato, ma il controllo qui sotto la
+    # blocca. Serve solo ad avere un messaggio leggibile invece del secco
+    # "400 No required SSL certificate was sent", che non dice cosa manca.
+    #
+    # ATTENZIONE: con 'optional' la protezione E' il controllo su
+    # $ssl_client_verify. Se lo si toglie, tutti i terminali (shell scrivibili,
+    # con sudo se l'utente ce l'ha) restano raggiungibili da chiunque arrivi
+    # sulla 443 senza dover dimostrare niente.
+    ssl_client_certificate  @CA_CRT@;
+    ssl_verify_client       optional;
+    ssl_verify_depth        2;
+
+    # --- websocket ------------------------------------------------------------
+    # ttyd parla col browser via websocket: senza Upgrade/Connection il
+    # terminale resta nero e in console si vede la connessione cadere.
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "Upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # Una sessione di lavoro resta aperta e zitta per ore: col default di 60s
+    # nginx chiuderebbe la websocket e il terminale andrebbe in reconnect.
+    proxy_read_timeout  1d;
+    proxy_send_timeout  1d;
+
+    # --- controllo del certificato client -------------------------------------
+    # $ssl_client_verify: SUCCESS con certificato valido, NONE se non ne e'
+    # stato mandato nessuno, FAILED:<motivo> se c'e' ma non valida (scaduto,
+    # CA sbagliata). Vale per tutto il server: dashboard e terminali.
+    if ($ssl_client_verify != SUCCESS) {
+        return 403;
+    }
+    # La pagina di cortesia risponde 200 con il motivo nel corpo, non 403:
+    # un "return 403" qui rientrerebbe in error_page e nginx lo tratterebbe
+    # come ciclo di redirezione interna. Chi e' bloccato lo capisce dal testo.
+    error_page 403 /403.html;
+    location = /403.html {
+        internal;
+        default_type text/plain;
+        return 200 "Certificato client assente o non valido ($ssl_client_verify).\nServe un certificato emesso dalla CA dei terminali, importato nel browser.\n";
+    }
+
+    # --- dashboard ------------------------------------------------------------
+    # Dichiarata invece di ereditata dalla root compilata di nginx, cosi' un
+    # aggiornamento di pacchetto non la sposta sotto i piedi.
+    root  @WEBROOT@;
+    index index.html;
+
+    # --- terminali ------------------------------------------------------------
+    # La forma senza slash finale (/term1) non serve dichiararla: per una
+    # location con prefisso che termina in "/" servita da proxy_pass, nginx
+    # risponde da se' un 301 verso /term1/ conservando la query string.
+@BLOCCHI_LOCATION@
+}

@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>@TITOLO@</title>
+  <!-- Icone: nel progetto originale qui ci sono favicon e webmanifest.
+       Si aggiungono mettendo i file nel WEBROOT e ripristinando i <link>. [RR] -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    html, body { height: 100%; margin: 0; background-color: #121212; color: #fff; overflow: hidden; }
+    /* la barra dei tab puo' andare a capo su schermi stretti: l'altezza dei pannelli
+       si adatta da sola grazie al flex, senza calcoli fissi tipo calc(100vh - 56px) */
+    body { display: flex; flex-direction: column; }
+    /* un solo accento per tutto cio' che e' "acceso": tab attivo e etichetta in modifica [RR] */
+    :root { --acc: #35e3a4; --acc-fondo: #10261f; --acc-bordo: #1f5544; }
+    .nav-tabs { background-color: #1e1e1e; border-bottom: 1px solid #333; flex: 0 0 auto; }
+    .nav-link {
+      position: relative;   /* ancora la barra dell'accento [RR] */
+      color: #8c8c8c; border-radius: 0;
+      cursor: grab; user-select: none;
+      touch-action: none;   /* serve ai pointer events: senza, il touch scrolla invece di trascinare */
+      transition: color .18s cubic-bezier(.32,.72,0,1), background-color .18s cubic-bezier(.32,.72,0,1);
+    }
+    /* Il bordo dell'hover di Bootstrap e' quasi bianco (#e9ecef): sul tab appena
+       lasciato, che sta ancora sotto il puntatore, sembrava un secondo tab
+       selezionato. Serve la stessa specificita' di Bootstrap (.nav-tabs .nav-link). [RR] */
+    .nav-tabs .nav-link:hover, .nav-tabs .nav-link:focus {
+      border-color: #3a3a3a #3a3a3a transparent;
+    }
+    .nav-link:hover:not(.active) { color: #e6e6e6; background-color: #262626; }
+    /* Il fuoco del browser NON deve marcare i tab: dopo una rinomina restava
+       l'alone azzurro sul tab di prima, che sembrava cosi' quello selezionato
+       anche dopo Shift+frecce. Lo stato attivo lo dice gia' il colore. [RR] */
+    .nav-link:focus, .nav-link:focus-visible { outline: none; box-shadow: none; }
+    .nav-link.active {
+      background-color: var(--acc-fondo) !important;
+      color: var(--acc) !important;
+      font-weight: 600; letter-spacing: .01em;
+      border-color: var(--acc-bordo) var(--acc-bordo) var(--acc-fondo) !important;
+    }
+    /* barra accesa sopra il tab attivo: si trova a colpo d'occhio anche con 10 tab [RR] */
+    .nav-link.active::after {
+      content: ''; position: absolute; left: -1px; right: -1px; top: -1px; height: 3px;
+      background: var(--acc); box-shadow: 0 0 10px rgba(53,227,164,.55);
+    }
+    .nav-link.trascina { opacity: .45; cursor: grabbing; }
+    .tab-content { flex: 1 1 auto; min-height: 0; }
+    .tab-pane { height: 100%; position: relative; }   /* riferimento per l'overlay di congelamento */
+    iframe { width: 100%; height: 100%; border: none; display: block; background: #000; }
+    .barra-dx { margin-left: auto; display: flex; align-items: center; gap: .6rem; padding: 0 .6rem; }
+    .hint { font-size: .75rem; color: #666; white-space: nowrap; }
+    @media (max-width: 1100px) { .hint { display: none; } }
+    .bottone-gela {
+      background: #2a2a2a; color: #ccc; border: 1px solid #444; border-radius: 3px;
+      font-size: .78rem; padding: .15rem .5rem; cursor: pointer; white-space: nowrap;
+    }
+    .bottone-gela:hover { background: #333; color: #fff; }
+    /* etichetta in modifica: si vede che e' un campo, non un'etichetta.
+       user-select va riattivato, il .nav-link lo spegne per il trascinamento. */
+    .etichetta[contenteditable="true"] {
+      outline: none; background: #000; color: #fff;
+      box-shadow: 0 0 0 1px var(--acc); border-radius: 2px; padding: 0 .2em;
+      min-width: 2em; display: inline-block;
+      cursor: text; user-select: text;
+    }
+    /* --- overlay di congelamento --- */
+    .gelo { position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; background: #0b0b0b; }
+    .gelo-barra {
+      flex: 0 0 auto; display: flex; align-items: center; gap: .8rem; flex-wrap: wrap;
+      padding: .35rem .6rem; background: #16324a; border-bottom: 1px solid #27506f;
+      font-size: .8rem; color: #cde;
+    }
+    .gelo-barra button {
+      background: #1e1e1e; color: #ddd; border: 1px solid #456; border-radius: 3px;
+      font-size: .78rem; padding: .15rem .55rem; cursor: pointer;
+    }
+    .gelo-barra button:hover { background: #2a2a2a; color: #fff; }
+    .gelo-barra label { display: flex; align-items: center; gap: .3rem; cursor: pointer; user-select: none; }
+    .gelo-nota { color: #8ab; font-size: .75rem; }
+    .gelo-testo {
+      flex: 1 1 auto; overflow: auto; margin: 0; padding: .5rem .7rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 13px; line-height: 1.25; white-space: pre; color: #ddd;
+      user-select: text; -webkit-user-select: text;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra dei TAB -->
+  <ul class="nav nav-tabs" id="terminalTabs" role="tablist"></ul>
+
+  <!-- Contenuto iFrame per ogni terminale -->
+  <div class="tab-content" id="terminalTabsContent"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // I terminali sono i 10 ttyd su 127.0.0.1:8700-8709, esposti da nginx
+    // come /term0/ ... /term9/ (vedi /etc/nginx/conf.d/www.conf).
+    // Gli URL sono RELATIVI: stesso host, stesso https, stesso mTLS della dashboard.
+    var TERMINALS = @TERMINALS@;
+
+    var CHIAVE_NOMI   = 'terminal-dashboard-nomi';
+    var CHIAVE_ORDINE = 'terminal-dashboard-ordine';
+
+    var tabs = document.getElementById('terminalTabs');
+    var panes = document.getElementById('terminalTabsContent');
+    var inModifica = false;   // mentre si rinomina, la tastiera non naviga
+    var gelo = null;          // pannello attualmente congelato
+
+    // nome di default per id, indipendente dall'ordine dei tab
+    var PREDEFINITI = {};
+    TERMINALS.forEach(function (t) { PREDEFINITI[t.id] = t.label; });
+
+    // --- preferenze locali ---------------------------------------------------
+    // Nomi e ordine stanno in localStorage: valgono per questo browser, non per
+    // il server. Ogni accesso e' protetto, lo storage puo' essere negato.
+    function leggi(chiave, vuoto) {
+      try { return JSON.parse(localStorage.getItem(chiave)) || vuoto; }
+      catch (err) { return vuoto; }
+    }
+    function scrivi(chiave, valore) {
+      try { localStorage.setItem(chiave, JSON.stringify(valore)); }
+      catch (err) { /* storage non disponibile: le preferenze valgono per questa sessione */ }
+    }
+    function salvaNome(id, nome) {
+      var n = leggi(CHIAVE_NOMI, {});
+      if (nome) n[id] = nome; else delete n[id];
+      scrivi(CHIAVE_NOMI, n);
+    }
+    function salvaOrdine() {
+      scrivi(CHIAVE_ORDINE, pulsanti().map(function (b) { return Number(b.dataset.id); }));
+    }
+
+    // --- costruzione ---------------------------------------------------------
+    var nomi = leggi(CHIAVE_NOMI, {});
+    var ordine = leggi(CHIAVE_ORDINE, []);
+    if (!Array.isArray(ordine)) ordine = [];
+
+    // I terminali sconosciuti all'ordine salvato (es. dopo averne aggiunto uno
+    // a TERMINALS) finiscono in coda, per id.
+    var elenco = TERMINALS.slice().sort(function (a, b) {
+      var ia = ordine.indexOf(a.id); if (ia < 0) ia = Infinity;
+      var ib = ordine.indexOf(b.id); if (ib < 0) ib = Infinity;
+      return ia === ib ? a.id - b.id : ia - ib;
+    });
+
+    elenco.forEach(function (t, i) {
+      var li = document.createElement('li');
+      li.className = 'nav-item';
+      li.setAttribute('role', 'presentation');
+
+      var btn = document.createElement('button');
+      btn.className = 'nav-link' + (i === 0 ? ' active' : '');
+      btn.id = 'term' + t.id + '-tab';
+      btn.type = 'button';
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('data-bs-toggle', 'tab');
+      btn.setAttribute('data-bs-target', '#term' + t.id);
+      btn.title = 'Doppio click per rinominare, trascina per spostare';
+      btn.dataset.id = t.id;
+
+      var span = document.createElement('span');
+      span.className = 'etichetta';
+      span.textContent = nomi[t.id] || t.label;
+      btn.appendChild(span);
+
+      li.appendChild(btn);
+      tabs.appendChild(li);
+
+      var pane = document.createElement('div');
+      pane.className = 'tab-pane fade' + (i === 0 ? ' show active' : '');
+      pane.id = 'term' + t.id;
+      pane.setAttribute('role', 'tabpanel');
+      pane.dataset.src = '/term' + t.id + '/';
+      panes.appendChild(pane);
+    });
+
+    var barraDx = document.createElement('li');
+    barraDx.className = 'barra-dx';
+    var bottoneGela = document.createElement('button');
+    bottoneGela.type = 'button';
+    bottoneGela.className = 'bottone-gela';
+    bottoneGela.textContent = '❄ Congela e copia';
+    bottoneGela.title = 'Blocca l\'input e mostra il testo selezionabile (Ctrl+Alt+C)';
+    var hint = document.createElement('span');
+    hint.className = 'hint';
+    hint.textContent = 'Shift+←/→ cambia · Alt+0–9 salta · doppio click rinomina · trascina riordina';
+    barraDx.appendChild(hint);
+    barraDx.appendChild(bottoneGela);
+    tabs.appendChild(barraDx);
+
+    // --- navigazione ---------------------------------------------------------
+    // L'ordine dei tab e' modificabile, quindi la posizione va letta dal DOM
+    // ogni volta: non si puo' tenere un indice memorizzato.
+    function pulsanti() {
+      return Array.prototype.slice.call(tabs.querySelectorAll('.nav-link'));
+    }
+    function indiceAttivo() {
+      var b = pulsanti();
+      for (var i = 0; i < b.length; i++) if (b[i].classList.contains('active')) return i;
+      return 0;
+    }
+    function pannelloAttivo() { return panes.querySelector('.tab-pane.active'); }
+    function vaiA(i) {
+      var b = pulsanti(), n = b.length;
+      if (!n) return;
+      i = ((i % n) + n) % n;                  // ciclico: dall'ultimo si torna al primo
+      bootstrap.Tab.getOrCreateInstance(b[i]).show();
+    }
+    function vaiPerId(id) {
+      var btn = document.getElementById('term' + id + '-tab');
+      if (btn) bootstrap.Tab.getOrCreateInstance(btn).show();
+    }
+
+    tabs.addEventListener('shown.bs.tab', function (e) {
+      if (gelo) scongela();                   // cambiare tab rilascia il congelamento
+      // Bootstrap sposta il fuoco solo quando il tab si cambia con la SUA tastiera:
+      // chiamando show() da codice (Shift+frecce, Alt+cifra) il fuoco resta dov'era,
+      // cioe' sul tab precedente. Va tolto a mano, o resta li' evidenziato. [RR]
+      var conFuoco = document.activeElement;
+      if (conFuoco && conFuoco.classList && conFuoco.classList.contains('nav-link')) conFuoco.blur();
+      var pane = document.querySelector(e.target.getAttribute('data-bs-target'));
+      caricaPannello(pane);
+      if (!inModifica) dagliIlFuoco(pane);
+    });
+
+    // --- accesso a xterm.js --------------------------------------------------
+    // ttyd fa `window.term = terminal` dentro la propria pagina. Essendo
+    // same-origin possiamo prenderlo dal genitore: da' il buffer del terminale
+    // e l'opzione disableStdin, che e' tutto quello che serve qui.
+    function termDi(pane) {
+      var f = pane && pane.querySelector('iframe');
+      try { return (f && f.contentWindow && f.contentWindow.term) || null; }
+      catch (err) { return null; }
+    }
+
+    // Testo della schermata visibile, riga per riga come appare a video.
+    // Con `ricongiungi` le righe spezzate dal wrap tornano una riga sola:
+    // in quel caso non si tagliano gli spazi a destra, o si perderebbero
+    // caratteri nel punto di giunzione.
+    function schermata(term, ricongiungi) {
+      var buf = term.buffer.active, out = [];
+      for (var i = 0; i < term.rows; i++) {
+        var y = buf.viewportY + i;
+        var linea = buf.getLine(y);
+        if (!linea) continue;
+        var succ = (i + 1 < term.rows) ? buf.getLine(y + 1) : null;
+        var continua = !!(ricongiungi && succ && succ.isWrapped);
+        var testo = linea.translateToString(!continua);
+        if (ricongiungi && linea.isWrapped && out.length) out[out.length - 1] += testo;
+        else out.push(testo);
+      }
+      while (out.length && out[out.length - 1] === '') out.pop();
+      return out.join('\n');
+    }
+
+    // --- copia ---------------------------------------------------------------
+    // navigator.clipboard e' affidabile perche' la pagina e' su https e la
+    // chiamata parte da un click o da un tasto, quindi il gesto utente c'e'.
+    // Il ripiego su execCommand serve solo ai browser che non lo espongono.
+    function copiaTesto(testo, avviso) {
+      function ok() { if (avviso) avviso(true); }
+      function no() { if (avviso) avviso(false); }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(testo).then(ok, ripiego);
+      } else {
+        ripiego();
+      }
+      function ripiego() {
+        var ta = document.createElement('textarea');
+        ta.value = testo;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        var esito = false;
+        try { esito = document.execCommand('copy'); } catch (err) { esito = false; }
+        document.body.removeChild(ta);
+        esito ? ok() : no();
+      }
+    }
+
+    // --- congelamento --------------------------------------------------------
+    // L'input viene bloccato con disableStdin, poi il testo della schermata
+    // viene mostrato in un <pre>: essendo testo HTML normale, selezione e
+    // copia funzionano sempre, senza dipendere dalla selezione interna di
+    // xterm.js ne' dall'auto-copia di ttyd.
+    function congela() {
+      if (gelo || inModifica) return;
+      var pane = pannelloAttivo();
+      var term = termDi(pane);
+      if (!term) {
+        bottoneGela.textContent = '❄ terminale non pronto';
+        setTimeout(function () { bottoneGela.textContent = '❄ Congela e copia'; }, 1500);
+        return;
+      }
+
+      var stdinPrima = term.options.disableStdin;
+      term.options.disableStdin = true;
+      try { term.blur(); } catch (err) {}
+
+      var overlay = document.createElement('div');
+      overlay.className = 'gelo';
+
+      var barra = document.createElement('div');
+      barra.className = 'gelo-barra';
+
+      var titolo = document.createElement('strong');
+      titolo.textContent = '❄ Congelato';
+
+      var chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.id = 'gelo-unwrap';
+      var lab = document.createElement('label');
+      lab.htmlFor = chk.id;
+      lab.appendChild(chk);
+      lab.appendChild(document.createTextNode('ricongiungi le righe spezzate'));
+
+      var bCopia = document.createElement('button');
+      bCopia.type = 'button';
+      bCopia.textContent = 'Copia tutto';
+
+      var bChiudi = document.createElement('button');
+      bChiudi.type = 'button';
+      bChiudi.textContent = 'Riprendi (Esc)';
+
+      var nota = document.createElement('span');
+      nota.className = 'gelo-nota';
+      nota.textContent = 'input bloccato · seleziona col mouse e Ctrl+C';
+
+      barra.appendChild(titolo);
+      barra.appendChild(lab);
+      barra.appendChild(bCopia);
+      barra.appendChild(bChiudi);
+      barra.appendChild(nota);
+
+      var pre = document.createElement('pre');
+      pre.className = 'gelo-testo';
+      pre.textContent = schermata(term, false);
+
+      overlay.appendChild(barra);
+      overlay.appendChild(pre);
+      pane.appendChild(overlay);
+
+      gelo = { pane: pane, term: term, overlay: overlay, stdinPrima: stdinPrima };
+
+      // selezione già pronta: Ctrl+C copia senza altri passaggi
+      selezionaTutto(pre);
+
+      chk.addEventListener('change', function () {
+        pre.textContent = schermata(term, chk.checked);
+        selezionaTutto(pre);
+      });
+      bCopia.addEventListener('click', function () {
+        copiaTesto(pre.textContent, function (ok) {
+          bCopia.textContent = ok ? 'Copiato ✓' : 'Non riesco';
+          setTimeout(function () { bCopia.textContent = 'Copia tutto'; }, 1400);
+        });
+      });
+      bChiudi.addEventListener('click', scongela);
+
+      bottoneGela.textContent = '❄ Riprendi';
+    }
+
+    function selezionaTutto(el) {
+      var r = document.createRange();
+      r.selectNodeContents(el);
+      var s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+    }
+
+    function scongela() {
+      if (!gelo) return;
+      var g = gelo;
+      gelo = null;
+      try { g.term.options.disableStdin = g.stdinPrima; } catch (err) {}
+      if (g.overlay.parentNode) g.overlay.parentNode.removeChild(g.overlay);
+      window.getSelection().removeAllRanges();
+      bottoneGela.textContent = '❄ Congela e copia';
+      dagliIlFuoco(g.pane);
+    }
+
+    bottoneGela.addEventListener('click', function () { gelo ? scongela() : congela(); });
+
+    // --- riordino ------------------------------------------------------------
+    // Pointer events invece di HTML5 drag-and-drop, che sui browser touch non
+    // funziona. Il trascinamento parte solo dopo una soglia di movimento, cosi'
+    // un click resta un click e il doppio click resta una rinomina.
+    var SOGLIA = 6;
+    var preso = null, xPartenza = 0, yPartenza = 0, trascinando = false;
+
+    tabs.addEventListener('pointerdown', function (e) {
+      if (inModifica || e.button !== 0) return;
+      var btn = e.target.closest('.nav-link');
+      if (!btn) return;
+      preso = btn;
+      xPartenza = e.clientX;
+      yPartenza = e.clientY;
+      trascinando = false;
+      // la cattura tiene i pointermove agganciati al pulsante anche se il
+      // puntatore finisce sopra un iframe
+      try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+
+    tabs.addEventListener('pointermove', function (e) {
+      if (!preso) return;
+      if (!trascinando) {
+        if (Math.abs(e.clientX - xPartenza) < SOGLIA && Math.abs(e.clientY - yPartenza) < SOGLIA) return;
+        trascinando = true;
+        preso.classList.add('trascina');
+      }
+      var li = preso.parentElement;
+      var voci = Array.prototype.slice.call(tabs.querySelectorAll('.nav-item'));
+      for (var i = 0; i < voci.length; i++) {
+        if (voci[i] === li) continue;
+        var r = voci[i].getBoundingClientRect();
+        // test sul rettangolo intero, non solo su X: con 10 tab la barra puo'
+        // andare a capo e ci sono piu' righe
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) continue;
+        if (e.clientX < r.left + r.width / 2) tabs.insertBefore(li, voci[i]);
+        else tabs.insertBefore(li, voci[i].nextSibling);
+        break;
+      }
+    });
+
+    function fineTrascinamento(e) {
+      if (!preso) return;
+      try { preso.releasePointerCapture(e.pointerId); } catch (err) {}
+      preso.classList.remove('trascina');
+      if (trascinando) salvaOrdine();
+      preso = null;
+      trascinando = false;
+    }
+    tabs.addEventListener('pointerup', fineTrascinamento);
+    tabs.addEventListener('pointercancel', fineTrascinamento);
+
+    // --- rinomina ------------------------------------------------------------
+    // Doppio click sul tab: l'etichetta diventa editabile in loco.
+    // Invio o click fuori confermano, Esc annulla, campo vuoto ripristina
+    // il nome di default.
+    function rinomina(btn) {
+      if (inModifica || gelo) return;
+      var span = btn.querySelector('.etichetta');
+      var id = btn.dataset.id;
+      var precedente = span.textContent;
+      var chiuso = false;
+
+      inModifica = true;
+      span.contentEditable = 'true';
+      span.spellcheck = false;
+
+      var r = document.createRange();
+      r.selectNodeContents(span);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(r);
+      span.focus();
+
+      function chiudi(conferma) {
+        if (chiuso) return;
+        chiuso = true;
+        inModifica = false;
+        span.contentEditable = 'false';
+        span.removeEventListener('keydown', onKeyEdit);
+        span.removeEventListener('blur', onBlur);
+        sel.removeAllRanges();
+
+        if (conferma) {
+          // niente newline: il contenteditable le lascia passare
+          var nuovo = span.textContent.replace(/\s+/g, ' ').trim();
+          span.textContent = nuovo || PREDEFINITI[id];
+          salvaNome(id, nuovo && nuovo !== PREDEFINITI[id] ? nuovo : '');
+        } else {
+          span.textContent = precedente;
+        }
+        // il fuoco torna al terminale, altrimenti si scrive nel vuoto.
+        // Prima si toglie dal pulsante: il doppio click ce l'aveva lasciato e
+        // senza blur il tab resterebbe marcato dal browser. [RR]
+        btn.blur();
+        dagliIlFuoco(document.getElementById('term' + id));
+      }
+
+      function onKeyEdit(e) {
+        e.stopPropagation();               // non far navigare i tab mentre si scrive
+        if (e.key === 'Enter') { e.preventDefault(); chiudi(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); chiudi(false); }
+      }
+      function onBlur() { chiudi(true); }
+
+      span.addEventListener('keydown', onKeyEdit);
+      span.addEventListener('blur', onBlur);
+    }
+
+    tabs.addEventListener('dblclick', function (e) {
+      var btn = e.target.closest('.nav-link');
+      if (!btn) return;
+      e.preventDefault();
+      rinomina(btn);
+    });
+
+    // --- caricamento pigro ---------------------------------------------------
+    // L'iframe (e quindi la websocket verso ttyd) nasce solo quando il tab viene
+    // aperto la prima volta. Una volta creato non lo tocchiamo piu', altrimenti
+    // si perderebbe lo scrollback del terminale. Riordinare i tab non ricrea
+    // niente: si sposta il <li>, il pannello non viene toccato.
+    function caricaPannello(pane) {
+      if (!pane) return;
+      var f = pane.querySelector('iframe');
+      if (f) return f;
+      f = document.createElement('iframe');
+      f.setAttribute('title', pane.id);
+      f.setAttribute('allow', 'clipboard-read; clipboard-write');
+      // I tasti vanno agganciati DENTRO il documento dell'iframe: xterm.js
+      // intercetta i keydown e il genitore non li vedrebbe mai. Same-origin,
+      // quindi contentDocument e' accessibile.
+      f.addEventListener('load', function () {
+        agganciaTasti(f);
+        agganciaOverlay(f, pane.id.slice(4));
+        if (pane.classList.contains('active') && !inModifica && !gelo) dagliIlFuoco(pane);
+      });
+      f.src = pane.dataset.src;
+      pane.appendChild(f);
+      return f;
+    }
+
+    // --- fuoco ---------------------------------------------------------------
+    // Dopo il cambio tab il fuoco deve finire nel terminale nuovo, altrimenti
+    // si continua a scrivere dove si era prima (o da nessuna parte).
+    function dagliIlFuoco(pane) {
+      var f = pane && pane.querySelector('iframe');
+      if (!f) return;
+      try {
+        f.contentWindow.focus();
+        var d = f.contentDocument;
+        // xterm.js tiene il fuoco su una textarea nascosta; se il nome della
+        // classe cambia in una versione futura, il focus sulla finestra basta.
+        var ta = d && (d.querySelector('textarea.xterm-helper-textarea') || d.querySelector('textarea'));
+        if (ta) ta.focus();
+      } catch (err) { /* iframe non ancora pronto: ci pensa l'evento load */ }
+    }
+
+    // --- tastiera ------------------------------------------------------------
+    function onTasto(e) {
+      if (inModifica) return;
+
+      // Ctrl+Alt+C congela / riprende. Con il pannello congelato, Esc riprende.
+      if (e.ctrlKey && e.altKey && !e.metaKey && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault(); e.stopPropagation();
+        gelo ? scongela() : congela();
+        return;
+      }
+      if (gelo) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); scongela(); }
+        return;   // congelati non si naviga: il tab resta quello che stai copiando
+      }
+
+      // Ctrl+Ins copia la selezione fatta dentro xterm: ttyd non ha nessuna
+      // scorciatoia per copiare, si affida solo all'auto-copia su selezione
+      // che il browser blocca quando non e' dentro un gesto utente.
+      if (e.ctrlKey && !e.altKey && !e.metaKey && e.key === 'Insert') {
+        var t = termDi(pannelloAttivo());
+        var sel = t && t.getSelection();
+        if (sel) {
+          e.preventDefault(); e.stopPropagation();
+          copiaTesto(sel, function (ok) {
+            bottoneGela.textContent = ok ? '✓ copiato' : '✗ non riesco';
+            setTimeout(function () { bottoneGela.textContent = '❄ Congela e copia'; }, 1200);
+          });
+        }
+        return;
+      }
+
+      if (e.ctrlKey || e.altKey || e.metaKey) {
+        // Alt+0..9 salta al terminale con quell'id, qualunque sia la posizione.
+        if (e.altKey && !e.ctrlKey && !e.metaKey && e.key >= '0' && e.key <= '9') {
+          if (document.getElementById('term' + e.key + '-tab')) {
+            e.preventDefault(); e.stopPropagation(); vaiPerId(e.key);
+          }
+        }
+        return;
+      }
+      if (!e.shiftKey) return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); vaiA(indiceAttivo() + 1); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); vaiA(indiceAttivo() - 1); }
+    }
+
+    // capture: il listener su document scatta PRIMA dell'handler di xterm sulla
+    // textarea, quindi stopPropagation gli impedisce di vedere il tasto.
+    function agganciaTasti(f) {
+      try {
+        var d = f.contentDocument;
+        if (d && !d.__tastiAgganciati) {
+          d.addEventListener('keydown', onTasto, true);
+          d.__tastiAgganciati = true;
+        }
+      } catch (err) { /* niente da fare: resta attivo solo il listener del genitore */ }
+    }
+
+    // --- messaggi di ttyd ----------------------------------------------------
+    // ttyd mostra i suoi avvisi ("Connection Closed", "Reconnecting...",
+    // "Press <invio> to Reconnect", "Reconnected", il flash della copia) con un
+    // <div> che l'OverlayAddon appende a .xterm: stile tutto in linea, nessuna
+    // classe e nessun font-family, quindi eredita il monospace del terminale.
+    // Il div sta DENTRO l'iframe, dove il CSS del genitore non arriva, e lo
+    // stile in linea batterebbe comunque una regola senza !important: il font
+    // si mette percio' sul nodo stesso, appena compare. [RR]
+    var SANS = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
+    // Testi che dicono «la connessione e' caduta». "Reconnected" non ci casca
+    // (e' l'avviso di ripristino) e nemmeno il flash della copia. [RR]
+    var CADUTA = /connection closed|reconnecting|to reconnect/i;
+
+    // L'overlay e' l'unico figlio di .xterm senza classe: quelli di xterm.js
+    // (xterm-viewport, xterm-screen, xterm-helpers, ...) ce l'hanno tutti.
+    function eOverlay(n) {
+      return !!n && n.nodeType === 1 && n.tagName === 'DIV' && !n.className;
+    }
+
+    // Il nome del tab descrive cio' che gira nel terminale. Se la sessione
+    // muore (exit dalla shell: `tmux new-session -A` al riaggancio ne crea una
+    // NUOVA, non riattacca quella di prima) l'etichetta e' bugiarda, quindi
+    // torna al default e la preferenza salvata viene cancellata. [RR]
+    function reimpostaNome(id) {
+      var btn = document.getElementById('term' + id + '-tab');
+      if (!btn) return;
+      var span = btn.querySelector('.etichetta');
+      if (!span || span.isContentEditable) return;   // rinomina in corso: non si tocca
+      if (span.textContent === PREDEFINITI[id]) return;
+      span.textContent = PREDEFINITI[id];
+      salvaNome(id, '');
+    }
+
+    function agganciaOverlay(f, id) {
+      var d;
+      try { d = f.contentDocument; } catch (err) { return; }
+      if (!d || d.__overlayAgganciato) return;
+
+      // .xterm nasce quando ttyd apre il terminale, un momento dopo il load
+      // dell'iframe: si attende con qualche tentativo invece di indovinare un
+      // ritardo fisso.
+      var tentativi = 0;
+      (function attendi() {
+        var el = null;
+        try { el = d.querySelector('.xterm'); } catch (err) { return; }
+        if (!el) { if (++tentativi < 100) setTimeout(attendi, 100); return; }
+        d.__overlayAgganciato = true;
+
+        function guarda(nodo) {
+          if (!eOverlay(nodo)) return;
+          nodo.style.fontFamily = SANS;
+          if (CADUTA.test(nodo.textContent || '')) reimpostaNome(id);
+        }
+
+        // L'addon riusa sempre lo stesso nodo: lo appende, gli cambia il testo
+        // e poi lo rimuove. Servono quindi sia childList sia characterData, e
+        // il sottoalbero perche' il testo sta in un nodo figlio.
+        var oss = new MutationObserver(function (mut) {
+          for (var i = 0; i < mut.length; i++) {
+            var m = mut[i], j;
+            for (j = 0; j < m.addedNodes.length; j++) guarda(m.addedNodes[j]);
+            var n = m.target;
+            while (n && n !== el) {
+              if (eOverlay(n)) { guarda(n); break; }
+              n = n.parentNode;
+            }
+          }
+        });
+        oss.observe(el, { childList: true, subtree: true, characterData: true });
+
+        // caso limite: overlay gia' a schermo prima dell'aggancio
+        for (var k = 0; k < el.children.length; k++) guarda(el.children[k]);
+      })();
+    }
+
+    document.addEventListener('keydown', onTasto, true);
+
+    // Primo tab subito, gli altri a richiesta.
+    caricaPannello(panes.querySelector('.tab-pane.active'));
+  </script>
+</body>
+</html>

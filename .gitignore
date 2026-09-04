@@ -1,0 +1,13 @@
+# Nothing that authenticates anyone should ever end up in this repository.
+# The scripts write keys and certificates to /etc/ssl and /root/certs-client, so
+# these patterns are pure insurance against a stray copy made while debugging.
+*.key
+*.crt
+*.csr
+*.pem
+*.p12
+*.srl
+
+# Rendered output: the installed copies live in /etc/nginx and the webroot.
+*.bak
+*.bak-*
