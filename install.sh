@@ -41,8 +41,15 @@ webroot        : $WEBROOT
 vhost          : $VHOST
 cert server    : $SSL_CRT
 CA client      : $CA_CRT
+verifica client: ssl_verify_client $VERIFICA_CLIENT
 cert client in : $CERT_CLIENT_DIR
 RIEP
+
+case "$VERIFICA_CLIENT" in
+    on) ;;
+    optional) echo "NOTA: VERIFICA_CLIENT=optional. Chi protegge il servizio e' il controllo su \$ssl_client_verify nel vhost: non toglierlo." ;;
+    *) echo "ERRORE: VERIFICA_CLIENT deve essere 'on' oppure 'optional', non '$VERIFICA_CLIENT'." >&2; exit 1 ;;
+esac
 
 # L'utente delle shell deve esistere: ttyd non lo crea e le unit fallirebbero
 # a raffica con Restart=always.
@@ -122,6 +129,7 @@ sed -e "/@BLOCCHI_UPSTREAM@/r $TMP/upstream" -e "/@BLOCCHI_UPSTREAM@/d" \
     -e "/@BLOCCHI_LOCATION@/r $TMP/location" -e "/@BLOCCHI_LOCATION@/d" \
     -e "s|@DOMINIO@|$DOMINIO|g" -e "s|@SSL_CRT@|$SSL_CRT|g" -e "s|@SSL_KEY@|$SSL_KEY|g" \
     -e "s|@CA_CRT@|$CA_CRT|g" -e "s|@WEBROOT@|$WEBROOT|g" \
+    -e "s|@VERIFICA_CLIENT@|$VERIFICA_CLIENT|g" \
     "$RADICE/conf/nginx-terminali.conf.tmpl" > "$TMP/vhost.conf"
 
 [ -f "$VHOST" ] && cp -p "$VHOST" "$VHOST.bak-$(date +%Y%m%d%H%M%S)"

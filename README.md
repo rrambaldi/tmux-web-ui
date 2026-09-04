@@ -33,22 +33,33 @@ Three parts, each with exactly one job:
 ## Read this before you deploy it
 
 This project puts **interactive shells on a public port**. The shells are writable and
-run as a real user — with `sudo` rights, if that user has them. The whole security
-model is one nginx directive:
+run as a real user — with `sudo` rights, if that user has them. Access control is a
+single line, and the default is the strict one:
+
+```nginx
+ssl_verify_client on;          # VERIFICA_CLIENT in impostazioni.conf
+```
+
+With `on`, nginx demands the client certificate during the TLS handshake. A request
+without one dies with `400 No required SSL certificate was sent` and never reaches a
+`location` block at all.
+
+`VERIFICA_CLIENT=optional` is the alternative, and it is a trade-off rather than simply
+a weaker setting. nginx then accepts the connection and the vhost turns it away itself:
 
 ```nginx
 if ($ssl_client_verify != SUCCESS) { return 403; }
 ```
 
-`ssl_verify_client` is deliberately set to `optional` rather than `on`, because `on`
-answers `400 No required SSL certificate was sent`, which tells you nothing about what
-is missing and wastes an afternoon. With `optional`, the connection is accepted and
-then **rejected by the check above**, with a readable message.
+which answers with a page naming *which* case it is — no certificate, an expired one, or
+the wrong CA — instead of a blunt 400 that tells you nothing while you are locked out of
+your own server. The price is that under `optional` **that check is the only
+protection**: delete it and every terminal becomes a shell for anyone who reaches port
+443, no credentials required. That is not hypothetical. It happened on the host this
+project came from, and it stayed that way for half a day before anyone noticed.
 
-**That check is the protection.** Remove it, or set `optional` without it, and every
-terminal is a shell for anyone who reaches port 443, no credentials required. This is
-not hypothetical: it happened on the original host, and it stayed that way for half a
-day before anyone noticed.
+The check is generated in both modes. Under `on` it never fires; it is there so that
+switching to `optional` is one variable rather than a security review.
 
 ## Install
 
@@ -122,6 +133,7 @@ and reissue.
 | Server certificate expired | regenerate with `certs/cert-server.sh`, or point `SSL_CRT`/`SSL_KEY` at a real one |
 | See what is running | `systemctl status 'ttyd@*'`, `runuser -u USER -- tmux ls` |
 | Reduce `N_TERM` | surplus instances keep running: `systemctl disable --now ttyd@8709` by hand |
+| Switch strict/diagnostic mTLS | `VERIFICA_CLIENT` (`on` / `optional`), then `./install.sh --salta-pacchetti` |
 
 ## The dashboard
 

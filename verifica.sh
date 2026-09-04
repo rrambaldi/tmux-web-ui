@@ -33,12 +33,26 @@ nginx -t >/dev/null 2>&1 && ok "configurazione valida" || no "nginx -t fallisce"
 # puo' essere autofirmato: qui si sta verificando l'mTLS, non la catena TLS.
 R=(--resolve "$DOMINIO:443:127.0.0.1" -sk --max-time 10)
 
-echo "mTLS:"
+echo "mTLS (ssl_verify_client $VERIFICA_CLIENT):"
+# Il rifiuto ha due forme diverse a seconda della modalita': con 'on' e' nginx
+# che chiude con 400 prima di guardare la configurazione del sito, con
+# 'optional' e' la pagina di cortesia del vhost. Vanno bene entrambe: cio' che
+# non deve mai succedere e' ricevere la dashboard.
 SENZA=$(curl "${R[@]}" "https://$DOMINIO/" 2>/dev/null)
+CODICE=$(curl "${R[@]}" -o /dev/null -w '%{http_code}' "https://$DOMINIO/" 2>/dev/null)
 case "$SENZA" in
-    *"Certificato client assente"*) ok "senza certificato: bloccato" ;;
-    *"<title>"*)                    no "SENZA CERTIFICATO SI ENTRA: il controllo su \$ssl_client_verify non c'e' o non scatta" ;;
-    *)                              info "senza certificato, risposta inattesa: $(echo "$SENZA" | head -1)" ;;
+    *"var TERMINALS"*|*"<title>"*)
+        no "SENZA CERTIFICATO SI ENTRA: mTLS non attivo" ;;
+    *"Certificato client assente"*)
+        ok "senza certificato: bloccato dal controllo nel vhost (modo optional)" ;;
+    *"No required SSL certificate"*)
+        ok "senza certificato: rifiutato da nginx con 400 (modo on)" ;;
+    *)
+        if [ "$CODICE" = 400 ] || [ "$CODICE" = 403 ]; then
+            ok "senza certificato: bloccato (HTTP $CODICE)"
+        else
+            no "senza certificato, risposta inattesa (HTTP $CODICE): $(echo "$SENZA" | head -1)"
+        fi ;;
 esac
 
 CRT="$CERT_CLIENT_DIR/$CLIENT_INIZIALE.crt"

@@ -91,6 +91,7 @@ pochi dispositivi la strada pratica e' rigenerare la CA e riemettere i certifica
 | Certificato server scaduto | rigenerarlo con `certs/cert-server.sh`, o puntare `SSL_CRT`/`SSL_KEY` a un certificato vero |
 | Vedere cosa gira | `systemctl status 'ttyd@*'`, `runuser -u UTENTE -- tmux ls` |
 | Ridurre `N_TERM` | le unit in eccesso restano attive: `systemctl disable --now ttyd@8709` a mano |
+| Passare da mTLS stretto a diagnostico | `VERIFICA_CLIENT` (`on` / `optional`), poi `./install.sh --salta-pacchetti` |
 
 ## La dashboard
 
@@ -123,18 +124,23 @@ ambiente chiuso, scaricare i due file nel webroot e correggere i due URL in
 
 ## Trappole, tutte verificate sul campo
 
-**`ssl_verify_client` e' `optional`, non `on`.** Non e' una svista: `on` risponde
-`400 No required SSL certificate was sent`, che non dice cosa manca e fa perdere
-tempo. Con `optional` la connessione entra e viene bloccata dal controllo esplicito
+**Le due modalita' dell'mTLS.** `VERIFICA_CLIENT` in `impostazioni.conf` decide chi
+respinge chi non ha il certificato, e il default e' la stretta:
 
-```nginx
-if ($ssl_client_verify != SUCCESS) { return 403; }
-```
+- **`on`** (default) — lo pretende nginx durante l'handshake TLS: senza certificato la
+  richiesta muore con `400 No required SSL certificate was sent` e non arriva a
+  nessuna `location`.
+- **`optional`** — la connessione entra e la respinge il vhost con
+  `if ($ssl_client_verify != SUCCESS) { return 403; }`, rispondendo *quale* dei tre
+  casi e' (assente, scaduto, CA sbagliata) invece del 400 secco che non dice niente
+  proprio mentre sei chiuso fuori dal tuo server.
 
-che risponde con un messaggio leggibile. **La protezione e' quel controllo**: se lo
-togli, tutte le shell (scrivibili, con sudo se l'utente ce l'ha) restano raggiungibili
-da chiunque arrivi sulla 443 senza dover dimostrare niente. E' successo davvero, per
-mezza giornata.
+Il prezzo di `optional` e' che **la protezione diventa quel controllo**: se lo togli,
+tutte le shell (scrivibili, con sudo se l'utente ce l'ha) restano raggiungibili da
+chiunque arrivi sulla 443 senza dover dimostrare niente. E' successo davvero, per mezza
+giornata. Il controllo viene generato in entrambe le modalita': con `on` non scatta mai,
+e sta li' perche' passare a `optional` sia una variabile e non una revisione di
+sicurezza.
 
 **SELinux.** Con SELinux **enforcing** nginx non puo' aprire connessioni verso ttyd:
 `proxy_pass` fallisce con 502 e in `audit.log` compare `name_connect`. `install.sh`

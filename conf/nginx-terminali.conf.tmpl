@@ -19,17 +19,22 @@ server {
 
     # --- mTLS: l'autenticazione del servizio ----------------------------------
     # ssl_client_certificate e' la CA che firma i certificati dei client
-    # (browser, telefono). 'optional' invece di 'on' NON e' un permesso: la
-    # connessione entra anche senza certificato, ma il controllo qui sotto la
-    # blocca. Serve solo ad avere un messaggio leggibile invece del secco
-    # "400 No required SSL certificate was sent", che non dice cosa manca.
+    # (browser, telefono). ssl_verify_client viene da VERIFICA_CLIENT:
     #
-    # ATTENZIONE: con 'optional' la protezione E' il controllo su
-    # $ssl_client_verify. Se lo si toglie, tutti i terminali (shell scrivibili,
-    # con sudo se l'utente ce l'ha) restano raggiungibili da chiunque arrivi
-    # sulla 443 senza dover dimostrare niente.
+    #   on        il certificato e' obbligatorio e lo pretende nginx stesso:
+    #             senza, la richiesta muore con "400 No required SSL
+    #             certificate was sent" e non arriva a nessuna location. E' il
+    #             default, ed e' il comportamento piu' stretto.
+    #   optional  la connessione entra anche senza certificato, e a bloccarla
+    #             e' il controllo su $ssl_client_verify qui sotto, che dice
+    #             cosa manca. Piu' facile da diagnosticare.
+    #
+    # ATTENZIONE, vale per 'optional': la protezione E' quel controllo. Se lo
+    # si toglie, tutti i terminali (shell scrivibili, con sudo se l'utente ce
+    # l'ha) restano raggiungibili da chiunque arrivi sulla 443 senza dover
+    # dimostrare niente.
     ssl_client_certificate  @CA_CRT@;
-    ssl_verify_client       optional;
+    ssl_verify_client       @VERIFICA_CLIENT@;
     ssl_verify_depth        2;
 
     # --- websocket ------------------------------------------------------------
@@ -52,6 +57,8 @@ server {
     # $ssl_client_verify: SUCCESS con certificato valido, NONE se non ne e'
     # stato mandato nessuno, FAILED:<motivo> se c'e' ma non valida (scaduto,
     # CA sbagliata). Vale per tutto il server: dashboard e terminali.
+    # Con ssl_verify_client 'on' questo blocco non scatta mai (nginx ha gia'
+    # chiuso con un 400) e resta come rete di sicurezza per il caso 'optional'.
     if ($ssl_client_verify != SUCCESS) {
         return 403;
     }
