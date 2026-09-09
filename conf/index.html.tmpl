@@ -735,6 +735,15 @@
       span.addEventListener('blur', onBlur);
     }
 
+    // Rinomina senza mouse, sul terminale attivo (in griglia: quello della
+    // cella attiva). Il doppio click resta, ma da tastiera non c'era modo di
+    // arrivarci, e su un portatile senza mouse rinominare voleva dire prendere
+    // il trackpad e centrare un tab. [RR]
+    function rinominaAttivo() {
+      var b = pulsanti()[indiceAttivo()];
+      if (b) rinomina(b);
+    }
+
     tabs.addEventListener('dblclick', function (e) {
       var btn = e.target.closest('.nav-link');
       if (!btn) return;
@@ -1465,7 +1474,8 @@
       { titolo: 'Terminali', voci: [
         { tasti: ['Shift+←', 'Shift+→'], che: 'terminale precedente e successivo, nell\'ordine dei tab' },
         { tasti: ['Alt+0', 'Alt+9'], che: 'salta al terminale con quell\'id, ovunque sia finito' },
-        { gesto: 'doppio click sul tab', che: 'rinomina: Invio conferma, Esc annulla, vuoto rimette il nome di serie' },
+        { tasti: ['Ctrl+F2'], che: 'rinomina il terminale attivo: Invio conferma, Esc annulla, vuoto rimette il nome di serie' },
+        { gesto: 'doppio click sul tab', che: 'rinomina quel tab, come Ctrl+F2' },
         { gesto: 'trascina il tab', che: 'cambia l\'ordine dei terminali' }
       ] },
       { titolo: 'Piu\' terminali insieme', voci: [
@@ -1628,6 +1638,17 @@
       if (e.ctrlKey && e.altKey && !e.metaKey && (e.key === 'g' || e.key === 'G')) {
         e.preventDefault(); e.stopPropagation();
         commutaGriglia();
+        return;
+      }
+
+      // Ctrl+F2 rinomina il terminale attivo. F2 e' il tasto della rinomina
+      // ovunque, dal gestore di file in giu', quindi non c'e' niente da
+      // ricordare; e col Ctrl davanti e' una sequenza che nel terminale non
+      // usa quasi nessuno -- a differenza di qualunque Ctrl+lettera, che in
+      // readline, in tmux o in vi vuol dire gia' qualcosa. [RR]
+      if (e.ctrlKey && !e.altKey && !e.metaKey && e.key === 'F2') {
+        e.preventDefault(); e.stopPropagation();
+        rinominaAttivo();
         return;
       }
 

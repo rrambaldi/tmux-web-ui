@@ -156,7 +156,8 @@ generico: sono tutte cose nate da un fastidio concreto.
   `Ctrl+H` e' `^H`, cioe' backspace per readline e per `vi` in inserimento — e' l'unica
   scorciatoia della pagina che non passa da `Ctrl+Alt`, e se da fastidio cambiarla e' una
   riga sola.
-- **Doppio click** sul tab per rinominarlo. Con i profili accesi (`PROFILI`) i nomi e
+- `Ctrl+F2` rinomina il terminale attivo (in griglia: quello della cella attiva), o
+  **doppio click** sul tab. Con i profili accesi (`PROFILI`) i nomi e
   l'ordine seguono **l'identita' del certificato**, non il browser: li ritrovi cambiando
   browser o riaprendo in incognito. `localStorage` resta come cache, quindi la pagina
   non aspetta la rete e funziona anche se il server non risponde.
