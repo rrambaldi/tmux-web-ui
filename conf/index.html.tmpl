@@ -1519,8 +1519,8 @@
       { titolo: 'Terminali', voci: [
         { tasti: ['Shift+←', 'Shift+→'], che: 'terminale precedente e successivo, nell\'ordine dei tab' },
         { tasti: ['Alt+0', 'Alt+9'], che: 'salta al terminale con quell\'id, ovunque sia finito' },
-        { tasti: ['Ctrl+F2'], che: 'rinomina il terminale attivo: Invio conferma, Esc annulla, vuoto rimette il nome di serie' },
-        { gesto: 'doppio click sul tab', che: 'rinomina quel tab, come Ctrl+F2' },
+        { tasti: ['Ctrl+2'], che: 'rinomina il terminale attivo: Invio conferma, Esc annulla, vuoto rimette il nome di serie' },
+        { gesto: 'doppio click sul tab', che: 'rinomina quel tab, come Ctrl+2' },
         { gesto: 'trascina il tab', che: 'cambia l\'ordine dei terminali' }
       ] },
       { titolo: 'Piu\' terminali insieme', voci: [
@@ -1686,12 +1686,16 @@
         return;
       }
 
-      // Ctrl+F2 rinomina il terminale attivo. F2 e' il tasto della rinomina
-      // ovunque, dal gestore di file in giu', quindi non c'e' niente da
-      // ricordare; e col Ctrl davanti e' una sequenza che nel terminale non
-      // usa quasi nessuno -- a differenza di qualunque Ctrl+lettera, che in
-      // readline, in tmux o in vi vuol dire gia' qualcosa. [RR]
-      if (e.ctrlKey && !e.altKey && !e.metaKey && e.key === 'F2') {
+      // Ctrl+2 rinomina il terminale attivo.
+      //
+      // Era Ctrl+F2; Ctrl+T, che sarebbe stato il preferito, non e' una scelta
+      // possibile: e' fra le scorciatoie che il browser tiene per se' (apre una
+      // scheda nuova) e alla pagina non arriva nemmeno, quindi un
+      // preventDefault non ci puo' niente. Ctrl+2 alla pagina arriva -- salvo
+      // browser che se lo prendano per saltare alla seconda scheda, ed e' la
+      // sola incognita rimasta. Nel terminale Ctrl+2 e' NUL (^@), che serve in
+      // emacs (set-mark) e quasi a nient'altro. [RR]
+      if (e.ctrlKey && !e.altKey && !e.metaKey && e.key === '2') {
         e.preventDefault(); e.stopPropagation();
         rinominaAttivo();
         return;
