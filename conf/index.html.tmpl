@@ -112,6 +112,30 @@
     .tasto:active { background: var(--acc-fondo); color: var(--acc); border-color: var(--acc-bordo); }
     .tasto:focus, .tasto:focus-visible { outline: none; }
 
+    /* Un bottone della testata che rappresenta uno stato ACCESO, non un
+       comando: stesso accento del tab attivo, cosi' "acceso" vuol dire la
+       stessa cosa in tutta la pagina. */
+    .bottone-gela.acceso {
+      background: var(--acc-fondo); color: var(--acc); border-color: var(--acc-bordo);
+      font-weight: 600;
+    }
+
+    /* Spia della modalita' storia (copy-mode di tmux). Nel footer perche' e'
+       dove stanno le frecce che in quella modalita' scorrono la storia, ed e'
+       dove guardi mentre le premi. Fuori dalla modalita' non c'e'. */
+    .spia {
+      display: none; align-items: center; gap: .3rem;
+      padding: 0 .55rem; border-radius: 4px; white-space: nowrap;
+      font-size: .78rem; font-weight: 600;
+      color: var(--acc); background: var(--acc-fondo); border: 1px solid var(--acc-bordo);
+    }
+    body.storia .spia { display: flex; }
+    /* e la barra intera si accende: si vede con la coda dell'occhio, senza
+       dover leggere l'etichetta */
+    body.storia.mostra-tastiera .tastiera {
+      border-top: 1px solid var(--acc); background: #14231e;
+    }
+
     /* --- adattamento allo schermo --- */
     /* I limiti stanno SOLO nel JS (vedi SCHERMI): qui si reagisce alle classi
        che mette sul body. Con una media query qui e un matchMedia la', prima
@@ -251,6 +275,27 @@
     // Non il solo glifo: '⌨' da solo, in mezzo a dieci tab, non si capisce
     // che sia un interruttore ne' di cosa.
     bottoneTastiera.textContent = '⌨ Tasti';
+
+    // Modalita' storia = copy-mode di tmux, quella di Ctrl-B [. Il bottone sta
+    // in TESTATA e non nel footer, cosi' c'e' anche sul desktop dove la barra
+    // dei tasti di serie non compare; e si accende, perche' e' un interruttore
+    // di stato e non un comando. [RR]
+    var bottoneStoria = document.createElement('button');
+    bottoneStoria.type = 'button';
+    bottoneStoria.className = 'bottone-gela';
+    bottoneStoria.textContent = '⇱ Storia';
+
+    // Dimensione dei caratteri del terminale, a mano. Sta accanto agli altri
+    // per lo stesso motivo: serve dove lo schermo e' piccolo, ma va raggiunta
+    // anche da un portatile.
+    var bottoneGiu = document.createElement('button');
+    bottoneGiu.type = 'button';
+    bottoneGiu.className = 'bottone-gela';
+    bottoneGiu.textContent = 'A−';
+    var bottoneSu = document.createElement('button');
+    bottoneSu.type = 'button';
+    bottoneSu.className = 'bottone-gela';
+    bottoneSu.textContent = 'A+';
     var bottoneGela = document.createElement('button');
     bottoneGela.type = 'button';
     bottoneGela.className = 'bottone-gela';
@@ -260,7 +305,10 @@
     hint.className = 'hint';
     hint.textContent = 'Shift+←/→ cambia · Alt+0–9 salta · doppio click rinomina · trascina riordina';
     barraDx.appendChild(hint);
+    barraDx.appendChild(bottoneGiu);
+    barraDx.appendChild(bottoneSu);
     barraDx.appendChild(bottoneTastiera);
+    barraDx.appendChild(bottoneStoria);
     barraDx.appendChild(bottoneGela);
     tabs.appendChild(barraDx);
 
@@ -721,6 +769,18 @@
       { classe: 'schermo-medio',   query: '(max-width: 900px)', font: 12 }
     ];
 
+    // La scelta a mano con A− / A+ batte l'automatico. Sta in localStorage e
+    // NON nel profilo sul server, di proposito: la dimensione giusta dipende
+    // dallo schermo che hai davanti, e un valore condiviso fra telefono e
+    // portatile sarebbe sbagliato su almeno uno dei due. [RR]
+    var CHIAVE_FONT = 'terminal-dashboard-font';
+    var FONT_MIN = 8, FONT_MAX = 24;
+
+    function fontAMano() {
+      var n = Number(leggi(CHIAVE_FONT, 0));
+      return (n >= FONT_MIN && n <= FONT_MAX) ? n : 0;   // 0 = automatico
+    }
+
     // Il primo che corrisponde vince: 'piccolo' sta prima perche' la sua
     // larghezza soddisfa anche la query di 'medio'.
     function schermoAttuale() {
@@ -746,7 +806,7 @@
       try {
         if (!pane.dataset.fontTtyd) pane.dataset.fontTtyd = String(term.options.fontSize);
         var s = schermoAttuale();
-        var voluto = (s && s.font) || Number(pane.dataset.fontTtyd);
+        var voluto = fontAMano() || (s && s.font) || Number(pane.dataset.fontTtyd);
         if (term.options.fontSize === voluto) return;
         term.options.fontSize = voluto;
         // Cambiare fontSize ridisegna il testo ma NON ricalcola righe e
@@ -784,6 +844,124 @@
         else if (mq.addListener) mq.addListener(adattaTutto);   // Safari vecchi
       } catch (err) {}
     });
+
+    // --- dimensione dei caratteri -------------------------------------------
+    // Quanto vale adesso, per il passo e per l'etichetta dei bottoni.
+    function fontAdesso() {
+      var term = termDi(pannelloAttivo());
+      try { if (term && term.options.fontSize) return Number(term.options.fontSize); }
+      catch (err) {}
+      var s = schermoAttuale();
+      return fontAMano() || (s && s.font) || 13;
+    }
+
+    // Il valore che l'automatico sceglierebbe adesso: serve per capire quando
+    // la scelta a mano si puo' buttare.
+    function fontAutomatico() {
+      var pane = pannelloAttivo();
+      var s = schermoAttuale();
+      return (s && s.font) || Number(pane && pane.dataset.fontTtyd) || 13;
+    }
+
+    function cambiaFont(passo) {
+      var n = fontAdesso() + passo;
+      if (n < FONT_MIN || n > FONT_MAX) return;
+      // Tornando esattamente sul valore che l'automatico avrebbe scelto, la
+      // scelta a mano viene buttata: cosi' si torna ad adattarsi allo schermo
+      // (ruotando il telefono, per esempio) senza un terzo bottone "auto".
+      scrivi(CHIAVE_FONT, n === fontAutomatico() ? 0 : n);
+      adattaTutto();
+      etichetteFont();
+    }
+
+    function etichetteFont() {
+      var n = fontAdesso();
+      var come = fontAMano() ? 'scelta' : 'automatica';
+      bottoneGiu.title = 'Caratteri piu' + '’ piccoli (adesso ' + n + 'px, ' + come + ')';
+      bottoneSu.title  = 'Caratteri piu' + '’ grandi (adesso ' + n + 'px, ' + come + ')';
+      bottoneGiu.disabled = n <= FONT_MIN;
+      bottoneSu.disabled  = n >= FONT_MAX;
+    }
+
+    bottoneGiu.addEventListener('click', function () { cambiaFont(-1); });
+    bottoneSu.addEventListener('click',  function () { cambiaFont(+1); });
+
+    // --- modalita' storia (copy-mode di tmux) --------------------------------
+    // Ctrl-B [ mette tmux in copy-mode: le frecce e PagSu/Giu smettono di
+    // andare al programma e scorrono lo scrollback. Il guaio e' che da fuori
+    // non si vede, e ci si ritrova a premere tasti che non fanno quello che
+    // si crede.
+    //
+    // COME SI SA SE E' ATTIVA. Non tenendo il conto dei nostri click: chi usa
+    // una tastiera vera puo' entrarci e uscirne da se', e una spia che mente e'
+    // peggio di nessuna spia. Si guarda invece cio' che tmux DISEGNA: in
+    // copy-mode scrive l'indicatore di posizione [riga/totale] in alto a
+    // destra del pannello, e quel disegno finisce nel buffer di xterm.js.
+    // Verificato registrando il pty di un client tmux vero: entrando in
+    // copy-mode compare "[0/179]". [RR]
+    var storiaAttiva = false;
+
+    function inStoria(term) {
+      try {
+        var buf = term.buffer.active;
+        var linea = buf.getLine(buf.viewportY);       // prima riga a schermo
+        if (!linea) return false;
+        // translateToString(true) taglia gli spazi a destra, quindi
+        // l'indicatore, che sta al margine destro, finisce in fondo.
+        var testo = linea.translateToString(true);
+        var m = /\[\d+\/\d+\]$/.exec(testo);
+        if (!m) return false;
+
+        // Il testo puo' finire per caso con qualcosa come "[1/10]": una barra
+        // di avanzamento accenderebbe la spia, e una spia che mente e' peggio
+        // di nessuna spia. Quello di tmux e' disegnato con mode-style, che di
+        // serie e' bg=yellow: si chiede percio' allo SFONDO delle celle. Su
+        // testo normale lo sfondo e' quello di default. [RR]
+        for (var x = m.index; x < testo.length; x++) {
+          var cella = linea.getCell(x);
+          if (cella && !cella.isBgDefault()) return true;
+        }
+        return false;
+      } catch (err) { return false; }
+    }
+
+    function mostraStoria() {
+      document.body.classList.toggle('storia', storiaAttiva);
+      bottoneStoria.classList.toggle('acceso', storiaAttiva);
+      bottoneStoria.setAttribute('aria-pressed', storiaAttiva ? 'true' : 'false');
+      bottoneStoria.title = storiaAttiva
+        ? 'Esci dalla storia e torna al terminale (Esc)'
+        : 'Scorri la storia del terminale (come Ctrl-B [)';
+    }
+
+    function guardaStoria() {
+      if (document.hidden) return;                    // scheda in secondo piano
+      var term = termDi(pannelloAttivo());
+      var ora = !!term && !gelo && inStoria(term);
+      if (ora === storiaAttiva) return;
+      storiaAttiva = ora;
+      mostraStoria();
+    }
+
+    // Un giro d'orologio corto: leggere una riga di buffer costa niente, e la
+    // spia deve seguire anche chi entra in copy-mode con la tastiera.
+    setInterval(guardaStoria, 400);
+    document.addEventListener('visibilitychange', guardaStoria);
+    tabs.addEventListener('shown.bs.tab', function () { setTimeout(guardaStoria, 60); });
+
+    function commutaStoria() {
+      if (gelo || inModifica) return;
+      var term = termDi(pannelloAttivo());
+      if (!term) return;
+      // Per uscire si manda Esc e non 'q': Esc annulla la copy-mode in
+      // entrambe le tabelle di tmux (emacs e vi) e, se lo stato rilevato
+      // fosse sbagliato, fuori dalla copy-mode non fa danni -- mentre 'q'
+      // scriverebbe una lettera nella shell.
+      // Per entrare, il prefisso Ctrl-B (0x02) seguito da '['.
+      try { term.input(storiaAttiva ? '\x1b' : '\x02['); } catch (err) {}
+      setTimeout(guardaStoria, 120);   // il rilevamento conferma o smentisce
+    }
+    bottoneStoria.addEventListener('click', commutaStoria);
 
     // --- tasti che un telefono non ha ---------------------------------------
     // La tastiera di sistema di un telefono non ha Tab, Esc, frecce ne'
@@ -837,6 +1015,12 @@
     }
 
     var tastiera = document.getElementById('tastiera');
+
+    var spia = document.createElement('span');
+    spia.className = 'spia';
+    spia.textContent = '⇱ storia · le frecce scorrono';
+    tastiera.appendChild(spia);
+
     TASTI.forEach(function (t) {
       var b = document.createElement('button');
       b.type = 'button';
@@ -1038,6 +1222,8 @@
     // stringono subito, e il terminale nasce con l'altezza definitiva invece
     // di fare un fit buono per mezzo secondo.
     classiSchermo();
+    etichetteFont();
+    mostraStoria();
 
     // Primo tab subito, gli altri a richiesta.
     caricaPannello(panes.querySelector('.tab-pane.active'));

@@ -240,6 +240,21 @@ generic frontend — every feature here exists because something was annoying.
   (`pointer: coarse`) and toggles with the **`⌨ Tasti`** button in the header, the choice
   remembered in `localStorage`. While a pane is frozen the keys go dead: they travel
   through `term.input()`, which honours `disableStdin` exactly as the real keyboard does.
+- **History mode**: the `⇱ Storia` button in the header enters and leaves `tmux`'s
+  copy-mode (the `Ctrl-B [` one), where the arrows and `PgUp`/`PgDn` scroll the
+  scrollback instead of reaching the program. The button lives in the header rather than
+  the footer so that it is there on the desktop too, and it lights up while the mode is
+  on; the footer shows a `⇱ storia · le frecce scorrono` indicator, which is where you
+  are looking while pressing arrows. The state is **not** a tally of our own clicks: it
+  is read from what tmux draws, so the indicator stays right even when you enter or
+  leave with a real keyboard.
+- **`A−` / `A+`** change the terminal's font size. The choice beats the automatic sizing
+  and is kept in `localStorage`; stepping back onto exactly the value the automatic
+  sizing would have picked drops the choice, so adapting to the screen resumes without
+  needing a third "auto" button. It lives in `localStorage` and **not** in the
+  server-side profile, deliberately: the right size depends on the screen in front of
+  you, and one value shared between a phone and a laptop would be wrong on at least one
+  of them.
 - The page **adapts to the screen**. On a phone, desktop-sized Bootstrap tabs take three
   rows (~150px out of 700) straight off the terminal: below 480px they tighten and long
   labels are truncated, below 900px a little less. The same step lowers the terminal font
@@ -351,6 +366,26 @@ One thing deliberately *not* propagated: when the connection drops the label rev
 its default (see below), but that revert stays **local**. Were it to reach the server, a
 dropped websocket — an nginx restart, a phone losing signal — would wipe the name in
 every browser of that identity. Only deliberate renames go up.
+
+**How you know copy-mode is on.** Not by counting clicks on the button: with a real
+keyboard you can enter and leave on your own, and an indicator that lies is worse than
+no indicator. What is read instead is what **tmux draws**: in copy-mode it writes the
+`[line/total]` position indicator at the pane's top right, and that drawing lands in
+xterm.js's buffer. Verified by recording the pty of a real tmux client: entering
+copy-mode makes `[0/179]` appear.
+
+Careful, because `capture-pane` does **not** show it: that captures the pane's contents,
+while the indicator is drawn by the client. Seeing it requires recording the pty of an
+attached client (`script -f ... -c "tmux attach -t ..."`).
+
+A bare `[n/m]` at the end of the line is not enough: a progress bar printing `[1/10]`
+would light the indicator. tmux's own is drawn with `mode-style`, which defaults to
+`bg=yellow`, so the cells' **background** is checked as well — on ordinary text it is
+the default one.
+
+Leaving sends **Esc**, not `q`: Esc cancels copy-mode in both of tmux's key tables
+(`copy-mode` and `copy-mode-vi`) and, should the detected state be wrong, does no harm
+outside copy-mode — whereas `q` would type a letter into the shell.
 
 **Arrow keys have two forms.** With application cursor mode on (DECCKM, which `vi` and
 full-screen interfaces set) an arrow is `ESC O A`; otherwise it is `ESC [ A`. The key bar

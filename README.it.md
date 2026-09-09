@@ -169,6 +169,20 @@ generico: sono tutte cose nate da un fastidio concreto.
   (`pointer: coarse`) e si accende o si spegne col bottone **`⌨ Tasti`** in testata, con
   la scelta ricordata in `localStorage`. Col pannello congelato i tasti si spengono:
   passano da `term.input()`, che rispetta `disableStdin` come la tastiera vera.
+- **Modalita' storia**: il bottone `⇱ Storia` in testata entra e esce dalla copy-mode di
+  `tmux` (quella di `Ctrl-B [`), dove le frecce e `PagSu`/`PagGiu` scorrono lo
+  scrollback invece di andare al programma. Il bottone sta in testata e non nel footer
+  cosi' c'e' anche sul desktop, e si accende quando la modalita' e' attiva; nel footer
+  compare la spia `⇱ storia · le frecce scorrono`, che e' dove guardi mentre premi le
+  frecce. Lo stato **non** e' il conto dei nostri click: si legge da cio' che tmux
+  disegna, quindi la spia e' giusta anche se entri o esci con la tastiera vera.
+- **`A−` / `A+`** cambiano la dimensione dei caratteri del terminale. La scelta batte
+  l'adattamento automatico e resta in `localStorage`; tornando esattamente sul valore
+  che l'automatico avrebbe scelto la scelta si butta, e si ricomincia ad adattarsi allo
+  schermo senza bisogno di un terzo bottone "auto". Sta in `localStorage` e **non** nel
+  profilo sul server, di proposito: la dimensione giusta dipende dallo schermo che hai
+  davanti, e un valore condiviso fra telefono e portatile sarebbe sbagliato su almeno
+  uno dei due.
 - La pagina **si adatta allo schermo**. Su un telefono i tab di Bootstrap a misura da
   desktop occupano tre righe (~150px su 700) che vengono tolte al terminale: sotto i
   480px si stringono e le etichette lunghe si troncano, sotto i 900px un po' meno. Nello
@@ -330,6 +344,26 @@ repo, ma un server che le ha gia' si tiene le sue icone anche dopo un rilancio.
 una sessione lasciata ferma verrebbe chiusa da nginx e il terminale andrebbe in
 reconnect. Sull'originale non si notava perche' la status line di tmux si aggiorna ogni
 15s e tiene il canale caldo — cioe' funzionava per un effetto collaterale.
+
+**Come si sa se la copy-mode e' attiva.** Non tenendo il conto dei click sul bottone:
+con una tastiera vera si entra e si esce da soli, e una spia che mente e' peggio di
+nessuna spia. Si guarda invece cio' che **tmux disegna**: in copy-mode scrive
+l'indicatore di posizione `[riga/totale]` in alto a destra del pannello, e quel disegno
+finisce nel buffer di xterm.js. Verificato registrando il pty di un client tmux vero:
+entrando in copy-mode compare `[0/179]`.
+
+Attenzione, perche' `capture-pane` **non** lo mostra: quello cattura il contenuto del
+pannello, mentre l'indicatore lo disegna il client. Per vederlo serve registrare il pty
+di un client attaccato (`script -f ... -c "tmux attach -t ..."`).
+
+Il solo `[n/m]` in fondo alla riga non basta: una barra di avanzamento che stampa
+`[1/10]` accenderebbe la spia. L'indicatore di tmux e' disegnato con `mode-style`, che
+di serie e' `bg=yellow`, quindi si chiede anche allo **sfondo** delle celle: su testo
+normale e' quello di default.
+
+Per uscire si manda **Esc** e non `q`: Esc annulla la copy-mode in entrambe le tabelle
+di tmux (`copy-mode` ed `copy-mode-vi`) e, se lo stato rilevato fosse sbagliato, fuori
+dalla copy-mode non fa danni — mentre `q` scriverebbe una lettera nella shell.
 
 **Le frecce hanno due forme.** Col modo cursore "applicazione" attivo (DECCKM, lo
 accendono `vi` e in genere le interfacce a tutto schermo) una freccia e' `ESC O A`, negli
