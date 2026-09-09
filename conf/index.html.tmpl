@@ -111,6 +111,42 @@
     }
     .tasto:active { background: var(--acc-fondo); color: var(--acc); border-color: var(--acc-bordo); }
     .tasto:focus, .tasto:focus-visible { outline: none; }
+
+    /* --- adattamento allo schermo --- */
+    /* I limiti stanno SOLO nel JS (vedi SCHERMI): qui si reagisce alle classi
+       che mette sul body. Con una media query qui e un matchMedia la', prima
+       o poi i due numeri divergono e nessuno se ne accorge. [RR] */
+
+    /* Su un telefono i tab di Bootstrap -- 1rem di testo, .5rem/1rem di
+       padding -- diventano dieci mattoni che si mangiano tre righe di
+       schermo: in verticale sono ~150px su 700, tolti al terminale.
+       Si stringono soprattutto in LARGHEZZA: e' quella che decide quanti
+       tab stanno per riga, e quindi quante righe. L'altezza si abbassa poco,
+       perche' sotto i ~25px un tab non lo si prende piu' col dito. */
+    body.schermo-medio   .nav-link { padding: .35rem .6rem;  font-size: .85rem; }
+    body.schermo-piccolo .nav-link { padding: .35rem .45rem; font-size: .8rem; }
+
+    /* Le etichette lunghe si troncano invece di allargare il tab: un nome da
+       venti caratteri, con dieci tab, riporta il problema da capo. */
+    body.schermo-medio   .etichetta,
+    body.schermo-piccolo .etichetta {
+      display: inline-block; max-width: 7ch; vertical-align: bottom;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    /* Mentre si rinomina no: troncato non si vedrebbe quello che si scrive. */
+    body.schermo-medio   .etichetta[contenteditable="true"],
+    body.schermo-piccolo .etichetta[contenteditable="true"] {
+      max-width: none; overflow: visible;
+    }
+
+    /* I bottoni della testata restano sulla barra dei tab: la barra e'
+       flex: 0 0 auto in cima al body, quindi qualunque altezza prenda e'
+       sempre a schermo e il bottone non finisce mai sotto la piega. */
+    body.schermo-medio   .bottone-gela,
+    body.schermo-piccolo .bottone-gela { font-size: .72rem; padding: .1rem .4rem; }
+    body.schermo-medio   .barra-dx,
+    body.schermo-piccolo .barra-dx { gap: .35rem; padding: 0 .35rem; }
+    body.schermo-piccolo .tasto { min-width: 2.4rem; font-size: .9rem; }
   </style>
 </head>
 <body>
@@ -212,7 +248,9 @@
     var bottoneTastiera = document.createElement('button');
     bottoneTastiera.type = 'button';
     bottoneTastiera.className = 'bottone-gela';
-    bottoneTastiera.textContent = '⌨';
+    // Non il solo glifo: '⌨' da solo, in mezzo a dieci tab, non si capisce
+    // che sia un interruttore ne' di cosa.
+    bottoneTastiera.textContent = '⌨ Tasti';
     var bottoneGela = document.createElement('button');
     bottoneGela.type = 'button';
     bottoneGela.className = 'bottone-gela';
@@ -553,6 +591,7 @@
       f.addEventListener('load', function () {
         agganciaTasti(f);
         agganciaOverlay(f, pane.id.slice(4));
+        attendiTerminale(pane, 100);
         if (pane.classList.contains('active') && !inModifica && !gelo) dagliIlFuoco(pane);
       });
       f.src = pane.dataset.src;
@@ -575,6 +614,84 @@
         if (ta) ta.focus();
       } catch (err) { /* iframe non ancora pronto: ci pensa l'evento load */ }
     }
+
+    // --- adattamento allo schermo -------------------------------------------
+    // Unico posto dove stanno i limiti: il CSS non ha media query sue, reagisce
+    // alle classi che mettiamo qui sul body. I tab di Bootstrap a misura da
+    // desktop, per dieci terminali su un telefono, occupano tre righe di
+    // schermo che vengono tolte al terminale.
+    //
+    // Al font si mette mano perche' la larghezza in colonne dipende da quello:
+    // a 13px su un telefono da 390px ci stanno una cinquantina di colonne, a
+    // 11px una sessantina, e la differenza si vede in htop o in un diff.
+    var SCHERMI = [
+      { classe: 'schermo-piccolo', query: '(max-width: 480px)', font: 11 },
+      { classe: 'schermo-medio',   query: '(max-width: 900px)', font: 12 }
+    ];
+
+    // Il primo che corrisponde vince: 'piccolo' sta prima perche' la sua
+    // larghezza soddisfa anche la query di 'medio'.
+    function schermoAttuale() {
+      for (var i = 0; i < SCHERMI.length; i++) {
+        try { if (window.matchMedia(SCHERMI[i].query).matches) return SCHERMI[i]; }
+        catch (err) { return null; }   // niente matchMedia: si resta al default
+      }
+      return null;                     // schermo largo: tutto come lo fa ttyd
+    }
+
+    function classiSchermo() {
+      var s = schermoAttuale();
+      SCHERMI.forEach(function (x) { document.body.classList.toggle(x.classe, x === s); });
+    }
+
+    // Il font di partenza non si scrive qui: si legge dal terminale la prima
+    // volta che lo si vede. Cosi' tornando su uno schermo largo si rimette
+    // quello di ttyd (13px oggi) invece di un numero copiato a mano che
+    // domani non e' piu' vero.
+    function adattaFont(pane) {
+      var term = termDi(pane);
+      if (!term) return;
+      try {
+        if (!pane.dataset.fontTtyd) pane.dataset.fontTtyd = String(term.options.fontSize);
+        var s = schermoAttuale();
+        var voluto = (s && s.font) || Number(pane.dataset.fontTtyd);
+        if (term.options.fontSize === voluto) return;
+        term.options.fontSize = voluto;
+        // Cambiare fontSize ridisegna il testo ma NON ricalcola righe e
+        // colonne: senza il fit, il pty resta convinto di avere le dimensioni
+        // di prima e le interfacce a tutto schermo escono storte. ttyd espone
+        // il fit del FitAddon come window.term.fit.
+        if (typeof term.fit === 'function') term.fit();
+        else {
+          var f = pane.querySelector('iframe');
+          // ttyd rifa' il fit sul resize della propria finestra: se un domani
+          // .fit non ci fosse piu', il resize e' la strada di riserva.
+          if (f && f.contentWindow) f.contentWindow.dispatchEvent(new Event('resize'));
+        }
+      } catch (err) { /* iframe non pronto: ci pensa attendiTerminale */ }
+    }
+
+    function adattaTutto() {
+      classiSchermo();
+      Array.prototype.forEach.call(panes.querySelectorAll('.tab-pane'), adattaFont);
+    }
+
+    // window.term nasce un attimo dopo il load dell'iframe, come .xterm: si
+    // riprova qualche volta invece di indovinare un ritardo fisso.
+    function attendiTerminale(pane, quanti) {
+      if (termDi(pane)) { adattaFont(pane); return; }
+      if (quanti > 0) setTimeout(function () { attendiTerminale(pane, quanti - 1); }, 100);
+    }
+
+    // Rotazione del telefono, finestra ridimensionata, tastiera di sistema che
+    // si apre: cambia la classe e con essa il font.
+    SCHERMI.forEach(function (x) {
+      try {
+        var mq = window.matchMedia(x.query);
+        if (mq.addEventListener) mq.addEventListener('change', adattaTutto);
+        else if (mq.addListener) mq.addListener(adattaTutto);   // Safari vecchi
+      } catch (err) {}
+    });
 
     // --- tasti che un telefono non ha ---------------------------------------
     // La tastiera di sistema di un telefono non ha Tab, Esc, frecce ne'
@@ -819,6 +936,11 @@
     }
 
     document.addEventListener('keydown', onTasto, true);
+
+    // Le classi dello schermo prima di creare il primo iframe: i tab si
+    // stringono subito, e il terminale nasce con l'altezza definitiva invece
+    // di fare un fit buono per mezzo secondo.
+    classiSchermo();
 
     // Primo tab subito, gli altri a richiesta.
     caricaPannello(panes.querySelector('.tab-pane.active'));

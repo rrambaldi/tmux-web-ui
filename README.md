@@ -233,9 +233,17 @@ generic frontend — every feature here exists because something was annoying.
   `PgUp`/`PgDn`. A phone's on-screen keyboard has none of those, and without them you
   cannot move around in `tmux` or `vi`, or complete a filename. Hold a button and it
   repeats, the way a real key does. It appears on its own where the pointer is a finger
-  (`pointer: coarse`) and toggles with the `⌨` button, the choice remembered in
-  `localStorage`. While a pane is frozen the keys go dead: they travel through
-  `term.input()`, which honours `disableStdin` exactly as the real keyboard does.
+  (`pointer: coarse`) and toggles with the **`⌨ Tasti`** button in the header, the choice
+  remembered in `localStorage`. While a pane is frozen the keys go dead: they travel
+  through `term.input()`, which honours `disableStdin` exactly as the real keyboard does.
+- The page **adapts to the screen**. On a phone, desktop-sized Bootstrap tabs take three
+  rows (~150px out of 700) straight off the terminal: below 480px they tighten and long
+  labels are truncated, below 900px a little less. The same step lowers the terminal font
+  (11px under 480, 12px under 900, otherwise whatever ttyd uses), because the font is
+  what decides how many columns fit: on a 390px phone that is roughly fifty versus sixty,
+  and you can see the difference in `htop` or a `diff`. The breakpoints live in exactly
+  one place, `SCHERMI` in the JS — the CSS has no media queries of its own, it reacts to
+  classes the JS puts on `body`.
 - When the connection drops, the **tab name resets to its default**: if you typed
   `exit`, the tmux session is gone and `-A` will create a fresh one on reconnect, so the
   label would be describing something that no longer exists.

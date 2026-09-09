@@ -162,9 +162,17 @@ generico: sono tutte cose nate da un fastidio concreto.
   `PagSu`/`PagGiu`: la tastiera di sistema di un telefono non li ha, e senza di quelli
   in `tmux` o in `vi` non ci si muove e non si completa un nome di file. Tenendo premuto
   si ripetono, come farebbe un tasto vero. Compare da se' dove il puntatore e' un dito
-  (`pointer: coarse`) e si accende o si spegne col bottone `⌨`, con la scelta ricordata
-  in `localStorage`. Col pannello congelato i tasti si spengono: passano da
-  `term.input()`, che rispetta `disableStdin` come la tastiera vera.
+  (`pointer: coarse`) e si accende o si spegne col bottone **`⌨ Tasti`** in testata, con
+  la scelta ricordata in `localStorage`. Col pannello congelato i tasti si spengono:
+  passano da `term.input()`, che rispetta `disableStdin` come la tastiera vera.
+- La pagina **si adatta allo schermo**. Su un telefono i tab di Bootstrap a misura da
+  desktop occupano tre righe (~150px su 700) che vengono tolte al terminale: sotto i
+  480px si stringono e le etichette lunghe si troncano, sotto i 900px un po' meno. Nello
+  stesso passaggio cala il font del terminale (11px sotto 480, 12px sotto 900, altrimenti
+  quello di ttyd), perche' e' il font a decidere quante colonne ci stanno: su un telefono
+  da 390px si passa da una cinquantina a una sessantina, e in `htop` o in un `diff` si
+  vede. I limiti stanno in un solo posto, `SCHERMI` nel JS: il CSS non ha media query
+  sue, reagisce alle classi che il JS mette sul `body`.
 - Quando la connessione cade, il **nome del tab torna al default**: se hai fatto `exit`
   la sessione tmux e' morta e al riaggancio `-A` ne crea una nuova, quindi l'etichetta
   descriverebbe qualcosa che non esiste piu'.
