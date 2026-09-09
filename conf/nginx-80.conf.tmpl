@@ -1,0 +1,27 @@
+# Porta 80. Generato da install.sh secondo PROTEGGI_80: non modificare la copia
+# installata, si perde al prossimo install.sh. [RR]
+#
+# Il problema che risolve: la configurazione di serie di nginx contiene
+#
+#     server { listen 80; server_name _; root /usr/share/nginx/html; }
+#
+# che serve lo STESSO webroot della dashboard in chiaro e senza mTLS. Non e'
+# un buco nei terminali (/term0/ ... non esistono su questa porta, rispondono
+# 404), ma e' la dashboard leggibile da chiunque e, soprattutto, e' qualunque
+# file lasciato nel webroot -- un .p12 compreso -- pubblicato su internet.
+
+# Il nome dei terminali sulla 80 non serve mai a niente: chi arriva qui ha
+# sbagliato schema e lo si manda su https, dove trovera' l'mTLS.
+# Non e' un default server: percio' questo blocco non tocca gli altri siti
+# della macchina, ma copre solo chi chiama per nome. Chi arriva sull'IP nudo
+# finisce ancora sul default server di nginx (vedi PROTEGGI_80=default).
+server {
+    listen 80;
+    listen [::]:80;
+    server_name @DOMINIO@;
+
+    # 301 e non 302: e' una regola permanente, e i browser la ricordano.
+    # $host e non $server_name: con piu' nomi si torna su quello chiesto.
+    return 301 https://$host$request_uri;
+}
+@BLOCCO_DEFAULT@

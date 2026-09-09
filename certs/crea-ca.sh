@@ -21,6 +21,26 @@ if [ -f "$CA_CRT" ] && [ -f "$CA_KEY" ]; then
     exit 1
 fi
 
+# Uno dei due c'e' e l'altro no. Tipico di un'installazione adottata, dove la
+# CA esiste con un nome suo e CA_KEY punta ancora al default: senza questo
+# controllo si scendeva a generare una CA nuova, e il `install ... "$CA_CRT"`
+# in fondo sovrascriveva la CA vera. nginx si sarebbe fidato solo di quella
+# nuova e OGNI certificato client emesso finora avrebbe smesso di funzionare.
+# Si crea una CA solo quando non c'e' niente da rovinare. [RR]
+if [ -f "$CA_CRT" ] || [ -f "$CA_KEY" ]; then
+    echo "ERRORE: della CA c'e' solo un pezzo, e non si sovrascrive niente al buio." >&2
+    [ -f "$CA_CRT" ] && echo "  certificato: $CA_CRT (c'e')"   >&2 || echo "  certificato: $CA_CRT (manca)" >&2
+    [ -f "$CA_KEY" ] && echo "  chiave     : $CA_KEY (c'e')"   >&2 || echo "  chiave     : $CA_KEY (manca)" >&2
+    cat >&2 <<MOTIVO
+
+Se questa e' un'installazione che esisteva gia', il pezzo che "manca" ha un
+nome diverso: mettilo in impostazioni.locale.conf (CA_CRT / CA_KEY) e rilancia.
+Generare una CA nuova qui sovrascriverebbe quella vera, e tutti i certificati
+client emessi finora smetterebbero di funzionare.
+MOTIVO
+    exit 1
+fi
+
 install -d -m 755 "$(dirname "$CA_CRT")"
 install -d -m 700 "$(dirname "$CA_KEY")"
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT

@@ -61,6 +61,36 @@ project came from, and it stayed that way for half a day before anyone noticed.
 The check is generated in both modes. Under `on` it never fires; it is there so that
 switching to `optional` is one variable rather than a security review.
 
+### Port 80 is not yours
+
+mTLS guards port 443. It says nothing about port 80, and nginx ships with
+
+```nginx
+server { listen 80; server_name _; root /usr/share/nginx/html; }
+```
+
+which serves **the same webroot as the dashboard**, in the clear, asking nobody for
+anything. The terminals themselves are not exposed there — `/term0/` and friends are
+404 on that port, they only exist in the mTLS vhost — so what leaks is the dashboard
+page and, far worse, *any file left in the webroot*.
+
+`PROTEGGI_80` decides how far to push back:
+
+| value | what it installs | covers |
+|---|---|---|
+| `nome` (default) | a port-80 server for `$DOMINIO` only, `301` to https | `http://your.host/…` |
+| `default` | the above, plus `listen 80 default_server` answering `444` | also the bare IP and unknown `Host:` headers |
+| `no` | nothing | nothing |
+
+`default` is the right answer on a dedicated host. It is not the default because it is
+the only part of this installation that changes the machine's behaviour *outside* the
+terminals: on a shared server it would silence any other http site that has no
+`server_name` of its own.
+
+None of the three is the actual protection, though. The actual protection is that **no
+key material ever lives in the webroot**, and `install.sh` refuses to run if it finds
+any — see the corresponding gotcha below.
+
 ## Install
 
 ```bash
@@ -124,6 +154,48 @@ without touching anyone else. Revoking a single certificate would need a CRL —
 isn't one, and for a handful of devices the practical answer is to regenerate the CA
 and reissue.
 
+## Adopting an existing installation
+
+The defaults in `impostazioni.conf` describe a fresh host. On a server that already
+runs something like this, by hand, they will not match — and running `install.sh` with
+mismatched defaults is worse than not running it:
+
+- `DOMINIO` defaults to `hostname -f`, which is the machine's internal name. It is not
+  necessarily the name people reach it by, nor the one in the certificate.
+- `CA_CRT` points somewhere that does not exist yet. This is the one that would lock
+  you out: a **new** CA gets created, nginx trusts only that one, and every client
+  certificate already issued stops working. `crea-ca.sh` now refuses to run when only
+  one half of the CA is where it expects it — the pair is either both there and
+  matching, or nothing is there at all — but it can only catch the case where the
+  existing file happens to sit at the configured path.
+- `SSL_CRT` likewise: a real certificate under a different filename is not found, and
+  a self-signed one is generated in its place.
+- `VHOST` defaults to `terminali.conf`, so an existing vhost under another name is not
+  replaced but *joined* — two servers on 443, and nginx keeps the first.
+
+Write the real values into `impostazioni.locale.conf`, which is read **before** the
+defaults and is not tracked by git:
+
+```bash
+cat > impostazioni.locale.conf <<'EOF'
+: "${DOMINIO:=term.example.com}"
+: "${UTENTE:=someone}"
+: "${SSL_CRT:=/etc/nginx/ssl/wildcard.example.com.crt}"
+: "${SSL_KEY:=/etc/nginx/ssl/wildcard.example.com.key}"
+: "${CA_CRT:=/etc/ssl/certs/whatever-the-existing-ca-is-called.crt}"
+: "${CA_KEY:=/etc/ssl/private/whatever-the-existing-ca-is-called.key}"
+: "${VHOST:=/etc/nginx/conf.d/www.conf}"
+EOF
+```
+
+Keep the `: "${VAR:=value}"` form: precedence is **environment > `impostazioni.locale.conf`
+> `impostazioni.conf`**, and derived values (`SSL_CRT` from `DOMINIO`, and so on) are
+computed after the local file is read, so they follow the real values rather than the
+defaults.
+
+Then look before you leap: `./verifica.sh` changes nothing and tells you what the
+current state is, and `./install.sh` prints its full summary before touching anything.
+
 ## Maintenance
 
 | Task | How |
@@ -134,6 +206,9 @@ and reissue.
 | See what is running | `systemctl status 'ttyd@*'`, `runuser -u USER -- tmux ls` |
 | Reduce `N_TERM` | surplus instances keep running: `systemctl disable --now ttyd@8709` by hand |
 | Switch strict/diagnostic mTLS | `VERIFICA_CLIENT` (`on` / `optional`), then `./install.sh --salta-pacchetti` |
+| Close port 80 as well | `PROTEGGI_80` (`nome` / `default` / `no`), then `./install.sh --salta-pacchetti` |
+| Add favicons | drop the files in `conf/icone/`, then `./install.sh --salta-pacchetti` |
+| Check a running installation | `sudo ./verifica.sh` — changes nothing, and covers the clear-text side too |
 
 ## The dashboard
 
@@ -178,8 +253,20 @@ is what makes the terminal persistent. The flip side: `exit` destroys the sessio
 good, and the next connection gets a new, empty one.
 
 **Never put the `.p12` in the webroot.** It looks convenient for importing from a phone,
-but it is the house key under the doormat. The scripts write it to `/root/certs-client`
-with mode `0600` for a reason.
+but it is the house key under the doormat — and the doormat is on the street: the
+webroot is served by nginx's stock port-80 server too, in the clear, with no client
+certificate asked for. A `.p12` there is the service's *only* authentication published
+on the internet, password-protected by a passphrase an attacker can grind offline at
+their leisure. The scripts write it to `/root/certs-client` with mode `0600` for a
+reason, and `install.sh` now refuses to run while any `.p12`, `.key`, `.pem`, `.crt`
+or `.csr` sits under the webroot. `verifica.sh` checks the same thing and prints the
+plain-http URL the file is reachable at, which tends to end the discussion.
+
+**Favicons are generated from what exists.** The `<link>` tags in `index.html` are
+emitted one per file actually present in the webroot (or in `conf/icone/`, from which
+`install.sh` copies them). A `<link>` to a missing icon is a 404 on every page load,
+and a hardcoded list is a list that goes stale — the binaries are not in the repo, but
+a server that already has them keeps its icons across reinstalls.
 
 **Websocket timeouts.** The vhost sets `proxy_read_timeout 1d`. With the 60s default,
 nginx closes an idle session and the terminal drops into reconnect. The original host
@@ -196,11 +283,15 @@ trying. Hence the freeze-and-copy workaround.
 
 ```
 impostazioni.conf              every setting, in one place
+impostazioni.locale.conf       optional, untracked: this server's real values (read first)
 install.sh                     idempotent end-to-end installer
 verifica.sh                    checks that a replica actually works, not just that it installed
 conf/ttyd@.service.tmpl        systemd template unit: one instance per port
 conf/nginx-terminali.conf.tmpl vhost: TLS, mTLS, websockets, /termN/ proxying
+conf/nginx-80.conf.tmpl        port 80: redirect to https (see PROTEGGI_80)
+conf/nginx-80-default.inc      extra block for PROTEGGI_80=default: takes the default server
 conf/index.html.tmpl           the tabbed dashboard
+conf/icone/                    optional favicons, copied to the webroot and linked if present
 certs/comune.inc               shared x509 extensions and sanity checks
 certs/crea-ca.sh               create the client CA (the service's authentication)
 certs/cert-server.sh           server TLS certificate (self-signed, or --csr for a real CA)

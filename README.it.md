@@ -82,6 +82,49 @@ Un certificato per **dispositivo**, non per persona: il telefono perso si butta 
 toccare il resto. Per togliere l'accesso a uno solo serve una CRL — non c'e', e per
 pochi dispositivi la strada pratica e' rigenerare la CA e riemettere i certificati.
 
+## Adottare un'installazione esistente
+
+I default di `impostazioni.conf` descrivono una macchina pulita. Su un server che una
+cosa del genere ce l'ha gia', fatta a mano, non coincidono — e lanciare `install.sh`
+con i default sbagliati e' peggio che non lanciarlo:
+
+- `DOMINIO` vale `hostname -f`, cioe' il nome interno della macchina: non e' detto sia
+  quello con cui la si raggiunge, ne' quello che sta nel certificato.
+- `CA_CRT` punta a un file che non esiste. Questa e' quella che ti chiude fuori: nasce
+  una CA **nuova**, nginx si fida solo di quella e tutti i certificati client gia'
+  emessi smettono di funzionare. `crea-ca.sh` adesso si rifiuta di partire quando
+  della CA trova un pezzo solo dove se l'aspetta — o ci sono entrambi e sono la stessa
+  coppia, o non c'e' niente — ma puo' accorgersene solo se il file esistente sta
+  proprio nel path configurato.
+- `SSL_CRT` uguale: un certificato vero salvato con un altro nome non viene trovato, e
+  al suo posto ne nasce uno autofirmato.
+- `VHOST` vale `terminali.conf`, quindi un vhost esistente con un altro nome non viene
+  sostituito ma *affiancato*: due server sulla 443, e nginx tiene il primo.
+
+I valori veri vanno in `impostazioni.locale.conf`, che viene letto **prima** dei
+default e non e' tracciato da git:
+
+```bash
+cat > impostazioni.locale.conf <<'EOF'
+: "${DOMINIO:=term.esempio.it}"
+: "${UTENTE:=mario}"
+: "${SSL_CRT:=/etc/nginx/ssl/wildcard.esempio.it.crt}"
+: "${SSL_KEY:=/etc/nginx/ssl/wildcard.esempio.it.key}"
+: "${CA_CRT:=/etc/ssl/certs/come-si-chiama-la-CA-esistente.crt}"
+: "${CA_KEY:=/etc/ssl/private/come-si-chiama-la-CA-esistente.key}"
+: "${VHOST:=/etc/nginx/conf.d/www.conf}"
+EOF
+```
+
+La forma `: "${VAR:=valore}"` va mantenuta: la precedenza e' **ambiente >
+`impostazioni.locale.conf` > `impostazioni.conf`**, e i valori derivati (`SSL_CRT` dal
+`DOMINIO`, e cosi' via) si calcolano dopo la lettura del file locale, quindi seguono i
+valori veri e non i default.
+
+Poi si guarda prima di saltare: `./verifica.sh` non modifica niente e dice com'e' la
+situazione adesso, e `install.sh` stampa il riepilogo completo prima di toccare
+qualsiasi cosa.
+
 ## Manutenzione
 
 | Cosa | Come |
@@ -92,6 +135,9 @@ pochi dispositivi la strada pratica e' rigenerare la CA e riemettere i certifica
 | Vedere cosa gira | `systemctl status 'ttyd@*'`, `runuser -u UTENTE -- tmux ls` |
 | Ridurre `N_TERM` | le unit in eccesso restano attive: `systemctl disable --now ttyd@8709` a mano |
 | Passare da mTLS stretto a diagnostico | `VERIFICA_CLIENT` (`on` / `optional`), poi `./install.sh --salta-pacchetti` |
+| Chiudere anche la porta 80 | `PROTEGGI_80` (`nome` / `default` / `no`), poi `./install.sh --salta-pacchetti` |
+| Aggiungere i favicon | i file in `conf/icone/`, poi `./install.sh --salta-pacchetti` |
+| Controllare un'installazione in piedi | `sudo ./verifica.sh` — non modifica niente, e guarda anche il lato in chiaro |
 
 ## La dashboard
 
@@ -142,6 +188,34 @@ giornata. Il controllo viene generato in entrambe le modalita': con `on` non sca
 e sta li' perche' passare a `optional` sia una variabile e non una revisione di
 sicurezza.
 
+**La porta 80 non e' tua.** L'mTLS difende la 443 e non dice niente sulla 80, dove la
+configurazione di serie di nginx tiene
+
+```nginx
+server { listen 80; server_name _; root /usr/share/nginx/html; }
+```
+
+che serve **lo stesso webroot della dashboard**, in chiaro e senza chiedere niente a
+nessuno. I terminali non ci sono (`/term0/` e compagnia rispondono 404 su quella porta,
+esistono solo nel vhost con mTLS): quello che esce e' la pagina della dashboard e,
+molto peggio, *qualunque file lasciato nel webroot*. `PROTEGGI_80` decide quanto in
+largo tirare la coperta:
+
+| valore | cosa installa | copre |
+|---|---|---|
+| `nome` (default) | un server sulla 80 per il solo `$DOMINIO`, `301` verso https | `http://tuo.host/…` |
+| `default` | il precedente, piu' `listen 80 default_server` che risponde `444` | anche l'IP nudo e gli `Host:` sconosciuti |
+| `no` | niente | niente |
+
+Su una macchina dedicata la risposta giusta e' `default`. Non e' il default perche' e'
+l'unico pezzo di questa installazione che cambia il comportamento della macchina
+*fuori* dai terminali: su un server condiviso spegnerebbe gli altri siti http che non
+hanno un `server_name` proprio.
+
+Nessuna delle tre e' comunque *la* protezione. La protezione e' che **nel webroot non
+ci stia mai materiale crittografico**, e `install.sh` si rifiuta di partire se ne
+trova.
+
 **SELinux.** Con SELinux **enforcing** nginx non puo' aprire connessioni verso ttyd:
 `proxy_pass` fallisce con 502 e in `audit.log` compare `name_connect`. `install.sh`
 mette `httpd_can_network_connect=1`. Sul server originale il problema non si vedeva
@@ -156,8 +230,21 @@ che rende il terminale persistente. Il rovescio: con `exit` la sessione muore pe
 sempre e al riaggancio ne trovi una nuova e vuota.
 
 **Non mettere il `.p12` nel webroot.** Sembra comodo per importarlo dal telefono, ma
-e' la chiave di casa lasciata sotto lo zerbino: gli script lo scrivono in
-`/root/certs-client` a `0600` di proposito.
+e' la chiave di casa lasciata sotto lo zerbino — e lo zerbino sta sulla strada: il
+webroot lo serve anche il server sulla 80 della configurazione di serie di nginx, in
+chiaro e senza chiedere alcun certificato. Un `.p12` la' dentro e' l'unica
+autenticazione del servizio pubblicata su internet, protetta da una passphrase che
+chi lo scarica puo' macinare offline con tutta calma. Gli script lo scrivono in
+`/root/certs-client` a `0600` di proposito, `install.sh` si rifiuta di partire se nel
+webroot trova un `.p12`, `.key`, `.pem`, `.crt` o `.csr`, e `verifica.sh` controlla la
+stessa cosa stampando l'URL in http da cui il file si scarica — che di solito chiude
+la discussione.
+
+**Le icone si generano da quello che c'e'.** I `<link>` dentro `index.html` vengono
+emessi uno per ogni file davvero presente nel webroot (o in `conf/icone/`, da cui
+`install.sh` li copia). Un `<link>` verso un'icona che non c'e' e' un 404 a ogni
+caricamento, e un elenco fisso e' un elenco che invecchia: i binari non stanno nel
+repo, ma un server che le ha gia' si tiene le sue icone anche dopo un rilancio.
 
 **Timeout della websocket.** Il vhost mette `proxy_read_timeout 1d`: col default di 60s
 una sessione lasciata ferma verrebbe chiusa da nginx e il terminale andrebbe in
@@ -175,11 +262,15 @@ congelamento (`Ctrl+Alt+C`).
 
 ```
 impostazioni.conf              tutte le variabili, un posto solo
+impostazioni.locale.conf       opzionale, non tracciato: i valori veri di QUESTO server
 install.sh                     installatore idempotente end-to-end
 verifica.sh                    controlla che la replica funzioni davvero
 conf/ttyd@.service.tmpl        unit template: una istanza per porta
 conf/nginx-terminali.conf.tmpl vhost: TLS, mTLS, websocket, proxy dei /termN/
+conf/nginx-80.conf.tmpl        porta 80: redirect a https (vedi PROTEGGI_80)
+conf/nginx-80-default.inc      blocco in piu' per PROTEGGI_80=default: prende il default server
 conf/index.html.tmpl           la dashboard a tab
+conf/icone/                    favicon opzionali, copiati nel webroot e linkati se presenti
 certs/comune.inc               estensioni x509 e controlli condivisi
 certs/crea-ca.sh               crea la CA client (l'autenticazione del servizio)
 certs/cert-server.sh           certificato TLS del server (autofirmato o CSR)
@@ -197,7 +288,11 @@ Il comportamento e' lo stesso, la forma no:
   CA aziendale e un certificato wildcard gia' esistenti. Puntando `CA_*` e `SSL_*` a
   quei file si ottiene la stessa cosa.
 - **`proxy_read_timeout 1d` aggiunto** (vedi sopra).
-- **Icone rimosse** dalla dashboard: erano i favicon di quell'host.
+- **Icone opzionali**: nell'originale i `<link>` dei favicon sono scritti a mano nella
+  pagina. Qui li genera `install.sh` in base ai file presenti, cosi' un rilancio non
+  li perde e un host senza icone non si ritrova quattro 404 per pagina.
+- **La porta 80 gestita** (`PROTEGGI_80`): nell'originale era rimasta quella di serie,
+  e serviva il webroot in chiaro.
 
 ## Requisiti
 

@@ -4,8 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>@TITOLO@</title>
-  <!-- Icone: nel progetto originale qui ci sono favicon e webmanifest.
-       Si aggiungono mettendo i file nel WEBROOT e ripristinando i <link>. [RR] -->
+  <!-- I <link> delle icone li mette install.sh, uno per ogni file che trova
+       davvero nel WEBROOT (o in conf/icone/, da cui li copia): i .png non
+       stanno nel repo, e un <link> verso un file assente e' un 404 a ogni
+       caricamento. Senza icone qui non compare niente. [RR] -->
+@ICONE@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     html, body { height: 100%; margin: 0; background-color: #121212; color: #fff; overflow: hidden; }
@@ -96,10 +99,10 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // I terminali sono i 10 ttyd su 127.0.0.1:8700-8709, esposti da nginx
-    // come /term0/ ... /term9/ (vedi /etc/nginx/conf.d/www.conf).
+    // Un elemento per ogni istanza ttyd in ascolto sulla loopback, esposta da
+    // nginx come /term<id>/ (l'elenco lo scrive install.sh da N_TERM).
     // Gli URL sono RELATIVI: stesso host, stesso https, stesso mTLS della dashboard.
-    var TERMINALS = @TERMINALS@;
+@TERMINALS@
 
     var CHIAVE_NOMI   = 'terminal-dashboard-nomi';
     var CHIAVE_ORDINE = 'terminal-dashboard-ordine';

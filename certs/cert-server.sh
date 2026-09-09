@@ -16,6 +16,18 @@ install -d -m 755 "$(dirname "$SSL_CRT")"
 install -d -m 755 "$(dirname "$SSL_KEY")"
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 
+# Il controllo di idempotenza viene PRIMA di generare la chiave: al contrario
+# si fabbrica una chiave nuova a ogni rilancio di install.sh per poi buttarla,
+# e su un server con un certificato vero (Let's Encrypt, CA aziendale) l'unica
+# cosa che deve succedere qui e' non toccare niente. Con --csr non si applica:
+# una richiesta di firma nuova vuole una chiave nuova per definizione. [RR]
+if [ "$SOLO_CSR" = no ] && [ -f "$SSL_CRT" ] && [ -f "$SSL_KEY" ] \
+   && stessaCoppia "$SSL_CRT" "$SSL_KEY"; then
+    echo "Certificato server gia' presente e coerente: $SSL_CRT"
+    openssl x509 -in "$SSL_CRT" -noout -subject -ext subjectAltName -enddate
+    exit 0
+fi
+
 SUBJ="/C=IT/ST=ITALY/L=MILANO/O=DIGITHERA/CN=$DOMINIO"
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$TMP/srv.key"
 openssl req -new -key "$TMP/srv.key" -sha256 -subj "$SUBJ" -out "$TMP/srv.csr"
@@ -28,12 +40,8 @@ if [ "$SOLO_CSR" = si ]; then
     exit 0
 fi
 
-if [ -f "$SSL_CRT" ] && [ -f "$SSL_KEY" ] && stessaCoppia "$SSL_CRT" "$SSL_KEY"; then
-    echo "Certificato server gia' presente e coerente: $SSL_CRT"
-    openssl x509 -in "$SSL_CRT" -noout -subject -ext subjectAltName -enddate
-    exit 0
-fi
-
+# Si arriva qui solo se il certificato manca o non e' coerente con la chiave:
+# in entrambi i casi quello che c'e' non serve a nginx, e si rifa'.
 # Autofirmato, non firmato dalla CA client: sono due ruoli diversi e tenerli
 # separati evita che un certificato client possa spacciarsi per il server.
 estServer "$DOMINIO" > "$TMP/srv.ext"

@@ -11,3 +11,12 @@
 # Rendered output: the installed copies live in /etc/nginx and the webroot.
 *.bak
 *.bak-*
+
+# Override locali di un singolo server (path, nomi, dominio veri): servono ad
+# adottare un'installazione preesistente e non hanno senso per nessun altro.
+impostazioni.locale.conf
+
+# Le icone sono binari e cambiano da installazione a installazione: conf/icone/
+# resta vuota nel repo, tranne le istruzioni.
+conf/icone/*
+!conf/icone/LEGGIMI.md

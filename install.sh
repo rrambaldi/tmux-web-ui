@@ -32,6 +32,11 @@ titolo() { echo; echo "=== $* ==="; }
 PORTE=()
 for ((i = 0; i < N_TERM; i++)); do PORTE+=( $((PORTA_BASE + i)) ); done
 
+# Un solo temporaneo per tutto lo script, con una sola trap: due `trap ... EXIT`
+# non si sommano, il secondo sostituisce il primo e quello di prima resterebbe
+# a terra. [RR]
+TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+
 titolo "Riepilogo"
 cat <<RIEP
 dominio        : $DOMINIO
@@ -43,6 +48,7 @@ cert server    : $SSL_CRT
 CA client      : $CA_CRT
 verifica client: ssl_verify_client $VERIFICA_CLIENT
 cert client in : $CERT_CLIENT_DIR
+porta 80       : $PROTEGGI_80
 RIEP
 
 case "$VERIFICA_CLIENT" in
@@ -51,10 +57,49 @@ case "$VERIFICA_CLIENT" in
     *) echo "ERRORE: VERIFICA_CLIENT deve essere 'on' oppure 'optional', non '$VERIFICA_CLIENT'." >&2; exit 1 ;;
 esac
 
+case "$PROTEGGI_80" in
+    nome)    ;;
+    default) ;;
+    no) echo "NOTA: PROTEGGI_80=no. La 80 resta come sta: se il default server di nginx serve $WEBROOT, la dashboard e' leggibile in chiaro." ;;
+    *)  echo "ERRORE: PROTEGGI_80 deve essere 'nome', 'default' oppure 'no', non '$PROTEGGI_80'." >&2; exit 1 ;;
+esac
+
 # L'utente delle shell deve esistere: ttyd non lo crea e le unit fallirebbero
 # a raffica con Restart=always.
 id "$UTENTE" >/dev/null 2>&1 || { echo "ERRORE: l'utente '$UTENTE' non esiste su questo server." >&2; exit 1; }
 [ "$UTENTE" = root ] && echo "ATTENZIONE: le shell girano come root. Un errore nell'mTLS diventa una root shell aperta."
+
+# Materiale crittografico nel WEBROOT: si controlla PRIMA di toccare qualsiasi
+# cosa. Il WEBROOT e' servito anche dal default server della 80, in chiaro e
+# senza mTLS, quindi un .p12 lasciato qui "per comodita' di import dal
+# telefono" e' il certificato client pubblicato su internet -- ed e' l'unica
+# autenticazione del servizio. Non si sposta da soli: e' roba di chi l'ha
+# messa, e va deciso a mano dove finisce.
+CHIAVI=()
+if [ -d "$WEBROOT" ]; then
+    while IFS= read -r f; do CHIAVI+=( "$f" ); done < <(
+        find "$WEBROOT" -maxdepth 3 -type f \
+             \( -name '*.p12' -o -name '*.pfx' -o -name '*.key' -o -name '*.pem' \
+                -o -name '*.crt' -o -name '*.csr' \) 2>/dev/null
+    )
+fi
+if [ "${#CHIAVI[@]}" -gt 0 ]; then
+    echo >&2
+    echo "ERRORE: nel webroot ci sono certificati o chiavi:" >&2
+    printf '  %s\n' "${CHIAVI[@]}" >&2
+    # heredoc non quotato: il path giusto dove spostarli e' CERT_CLIENT_DIR,
+    # che su un'installazione adottata non e' quello di default.
+    cat >&2 <<MOTIVO
+
+Il webroot e' pubblico: la configurazione di serie di nginx lo serve anche
+sulla porta 80, in chiaro e senza chiedere alcun certificato client. Un .p12
+lasciato qui e' la chiave di casa sotto lo zerbino.
+
+Spostali fuori (gli emessi da qui stanno in $CERT_CLIENT_DIR, 0600) e rilancia:
+  mv <file> $CERT_CLIENT_DIR/
+MOTIVO
+    exit 1
+fi
 
 # --- 1. pacchetti -------------------------------------------------------------
 if [ "$SALTA_PACCHETTI" = no ]; then
@@ -99,23 +144,56 @@ done
 
 # --- 4. dashboard -------------------------------------------------------------
 titolo "Dashboard"
-TERM_JS="["
-for ((i = 0; i < N_TERM; i++)); do
-    [ "$i" -gt 0 ] && TERM_JS+=", "
-    TERM_JS+="{ id: $i, label: 'Term $i' }"
-done
-TERM_JS+="]"
+# Un terminale per riga, non tutti su una riga sola: questo pezzo si finisce a
+# leggere nel "vedi sorgente" del browser quando un tab non va, ed e' l'unico
+# punto della pagina che dice quanti terminali ci sono. Si genera su file
+# perche' sed non sostituisce a capo dentro una s|||. [RR]
+{
+    echo "    var TERMINALS = ["
+    for ((i = 0; i < N_TERM; i++)); do
+        VIRGOLA=","; [ "$i" -eq "$((N_TERM - 1))" ] && VIRGOLA=""
+        printf "      { id: %s, label: 'Term %s' }%s\n" "$i" "$i" "$VIRGOLA"
+    done
+    echo "    ];"
+} > "$TMP/terminals"
 
 install -d -m 755 "$WEBROOT"
+
+# Icone: se conf/icone/ contiene qualcosa lo si copia nel WEBROOT, poi si
+# genera un <link> per ogni file che ESISTE davvero (nel repo i .png non ci
+# sono, ma su un server che le ha gia' i link vanno rimessi comunque: un
+# install.sh che li perde degrada la pagina a ogni rilancio). Un <link> verso
+# un file assente sarebbe un 404 a ogni caricamento, quindi si guarda il
+# disco e non un elenco fisso. [RR]
+if [ -d "$RADICE/conf/icone" ]; then
+    for f in "$RADICE/conf/icone"/*; do
+        [ -f "$f" ] || continue
+        case "${f##*/}" in LEGGIMI.md|README*) continue ;; esac
+        install -m 644 "$f" "$WEBROOT/${f##*/}"
+    done
+fi
+
+: > "$TMP/icone"
+# favicon.ico non ha un <link>: i browser lo chiedono da soli su /favicon.ico.
+# `|| return 0` e non `&& printf`: con set -e una funzione il cui ultimo
+# comando fallisce fa morire lo script, e qui il file mancante e' la norma.
+icona() { [ -f "$WEBROOT/$1" ] || return 0; printf '  %s\n' "$2" >> "$TMP/icone"; }
+icona apple-touch-icon.png '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">'
+icona favicon-32x32.png    '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">'
+icona favicon-16x16.png    '<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">'
+icona site.webmanifest     '<link rel="manifest" href="/site.webmanifest">'
+N_ICONE=$(wc -l < "$TMP/icone")
+
 [ -f "$WEBROOT/index.html" ] && cp -p "$WEBROOT/index.html" "$WEBROOT/index.html.bak-$(date +%Y%m%d%H%M%S)"
-sed -e "s|@TITOLO@|$TITOLO|g" -e "s|@TERMINALS@|$TERM_JS|g" \
+sed -e "/@ICONE@/r $TMP/icone" -e "/@ICONE@/d" \
+    -e "/@TERMINALS@/r $TMP/terminals" -e "/@TERMINALS@/d" \
+    -e "s|@TITOLO@|$TITOLO|g" \
     "$RADICE/conf/index.html.tmpl" > "$WEBROOT/index.html"
 chmod 644 "$WEBROOT/index.html"
-echo "$WEBROOT/index.html: $N_TERM terminali"
+echo "$WEBROOT/index.html: $N_TERM terminali, $N_ICONE icone"
 
 # --- 5. vhost nginx -----------------------------------------------------------
 titolo "nginx"
-TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 for p in "${PORTE[@]}"; do
     echo "upstream ttyd_$p { server 127.0.0.1:$p; }" >> "$TMP/upstream"
 done
@@ -135,7 +213,58 @@ sed -e "/@BLOCCHI_UPSTREAM@/r $TMP/upstream" -e "/@BLOCCHI_UPSTREAM@/d" \
 [ -f "$VHOST" ] && cp -p "$VHOST" "$VHOST.bak-$(date +%Y%m%d%H%M%S)"
 install -m 644 -o root -g root "$TMP/vhost.conf" "$VHOST"
 
-# --- 6. SELinux ---------------------------------------------------------------
+# --- 6. porta 80 --------------------------------------------------------------
+# Vedi conf/nginx-80.conf.tmpl per il perche'. Qui si sceglie solo quanto in
+# largo si tira la coperta.
+titolo "Porta 80 ($PROTEGGI_80)"
+if [ "$PROTEGGI_80" = no ]; then
+    # Idempotenza anche in marcia indietro: se un giro precedente aveva
+    # installato il file, tornare a 'no' deve toglierlo davvero.
+    if [ -f "$VHOST_80" ]; then
+        mv "$VHOST_80" "$VHOST_80.bak-$(date +%Y%m%d%H%M%S)"
+        echo "rimosso $VHOST_80 (backup accanto)"
+    else
+        echo "non tocco la 80"
+    fi
+else
+    if [ "$PROTEGGI_80" = default ]; then
+        cp "$RADICE/conf/nginx-80-default.inc" "$TMP/blocco80"
+    else
+        : > "$TMP/blocco80"
+    fi
+    sed -e "/@BLOCCO_DEFAULT@/r $TMP/blocco80" -e "/@BLOCCO_DEFAULT@/d" \
+        -e "s|@DOMINIO@|$DOMINIO|g" \
+        "$RADICE/conf/nginx-80.conf.tmpl" > "$TMP/vhost80.conf"
+
+    [ -f "$VHOST_80" ] && cp -p "$VHOST_80" "$VHOST_80.bak-$(date +%Y%m%d%H%M%S)"
+    install -m 644 -o root -g root "$TMP/vhost80.conf" "$VHOST_80"
+
+    # Marcia indietro mirata. Il modo 'default' litiga con qualunque altro
+    # vhost che dichiari default_server sulla 80 ("a duplicate default
+    # server"), e perdere questa protezione e' meglio che lasciare nginx con
+    # una configurazione che non ricarica: i terminali contano di piu'.
+    # Ma si toglie SOLO se togliendolo la configurazione torna valida: se il
+    # guasto e' altrove (per esempio nel vhost 443 appena scritto) il file
+    # rientra al suo posto e l'errore vero lo mostra il passo 9. [RR]
+    if nginx -t >/dev/null 2>&1; then
+        echo "$VHOST_80 installato"
+        [ "$PROTEGGI_80" = nome ] && echo "NOTA: copre http://$DOMINIO/, non l'IP nudo. Su una macchina dedicata usa PROTEGGI_80=default."
+    else
+        mv "$VHOST_80" "$TMP/vhost80.sospeso"
+        if nginx -t >/dev/null 2>&1; then
+            echo "ATTENZIONE: con $VHOST_80 nginx non regge, l'ho rimosso." >&2
+            echo "Probabile causa: un altro vhost dichiara gia' default_server sulla 80." >&2
+            echo "Riprova con PROTEGGI_80=nome. La 80 resta come era." >&2
+        else
+            # Il colpevole non e' questo file: rimettilo e lascia parlare
+            # il controllo finale, che ha il messaggio giusto.
+            mv "$TMP/vhost80.sospeso" "$VHOST_80"
+            echo "NOTA: nginx -t fallisce, ma non per colpa di $VHOST_80 (vedi sotto)." >&2
+        fi
+    fi
+fi
+
+# --- 7. SELinux ---------------------------------------------------------------
 # Con SELinux enforcing nginx NON puo' aprire connessioni di rete verso ttyd:
 # il proxy_pass fallisce con 502 e in audit.log compare name_connect. Sulla
 # macchina originale non si vedeva perche' e' in Permissive.
@@ -146,7 +275,7 @@ if command -v selinuxenabled >/dev/null && selinuxenabled; then
     command -v restorecon >/dev/null && restorecon -R "$WEBROOT" || true
 fi
 
-# --- 7. firewall --------------------------------------------------------------
+# --- 8. firewall --------------------------------------------------------------
 if systemctl is-active --quiet firewalld 2>/dev/null; then
     titolo "firewalld"
     firewall-cmd --permanent --add-service=https >/dev/null
@@ -154,13 +283,13 @@ if systemctl is-active --quiet firewalld 2>/dev/null; then
     echo "443/tcp aperta"
 fi
 
-# --- 8. avvio nginx -----------------------------------------------------------
+# --- 9. avvio nginx -----------------------------------------------------------
 nginx -t
 systemctl enable nginx >/dev/null
 systemctl reload nginx 2>/dev/null || systemctl restart nginx
 echo "nginx: $(systemctl is-active nginx)"
 
-# --- 9. primo certificato client ---------------------------------------------
+# --- 10. primo certificato client ---------------------------------------------
 if [ -f "$CERT_CLIENT_DIR/$CLIENT_INIZIALE.p12" ]; then
     titolo "Certificato client"
     echo "gia' presente: $CERT_CLIENT_DIR/$CLIENT_INIZIALE.p12"
@@ -170,7 +299,7 @@ else
     "$RADICE/certs/emetti-client.sh" "$CLIENT_INIZIALE"
 fi
 
-# --- 10. verifica -------------------------------------------------------------
+# --- 11. verifica -------------------------------------------------------------
 "$RADICE/verifica.sh" || true
 
 cat <<FINE
