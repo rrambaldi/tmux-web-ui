@@ -16,6 +16,17 @@ After=network.target
 ExecStart=/usr/bin/ttyd -W -p %i -i 127.0.0.1 tmux new-session -A -s term-%i bash -l
 Restart=always
 RestartSec=2
+
+# KillMode=process, e non il default control-group, per una ragione che si
+# scopre nel modo peggiore. Il server tmux non nasce come processo a se': lo
+# avvia il PRIMO `tmux new-session` che parte, quindi finisce nel cgroup di
+# quella unit ttyd. Col default, fermare quella unit uccide tutto il suo
+# cgroup -- server tmux compreso -- e con esso TUTTE le sessioni, non solo la
+# sua: `install.sh`, che fa restart su ogni porta, azzerava il lavoro aperto
+# in tutti i terminali. Con 'process' si ferma solo ttyd; il client e il
+# server tmux restano, e al riaggancio `new-session -A` ritrova la sessione.
+# E' quello che il progetto ha sempre dichiarato di fare. [RR]
+KillMode=process
 User=@UTENTE@
 Group=@GRUPPO@
 WorkingDirectory=~

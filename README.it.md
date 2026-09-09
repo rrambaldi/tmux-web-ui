@@ -136,6 +136,8 @@ qualsiasi cosa.
 | Ridurre `N_TERM` | le unit in eccesso restano attive: `systemctl disable --now ttyd@8709` a mano |
 | Passare da mTLS stretto a diagnostico | `VERIFICA_CLIENT` (`on` / `optional`), poi `./install.sh --salta-pacchetti` |
 | Chiudere anche la porta 80 | `PROTEGGI_80` (`nome` / `default` / `no`), poi `./install.sh --salta-pacchetti` |
+| Nomi dei tab legati all'utente | `PROFILI` (`si` / `no`), poi `./install.sh --salta-pacchetti` |
+| Azzerare il profilo di qualcuno | `rm $DIR_PROFILI/<cn>.json` — al prossimo accesso si ricrea |
 | Aggiungere i favicon | i file in `conf/icone/`, poi `./install.sh --salta-pacchetti` |
 | Controllare un'installazione in piedi | `sudo ./verifica.sh` — non modifica niente, e guarda anche il lato in chiaro |
 
@@ -146,8 +148,10 @@ generico: sono tutte cose nate da un fastidio concreto.
 
 - `Shift+←/→` cambia tab seguendo l'**ordine visivo**; `Alt+0–9` salta all'**id** del
   terminale, che non cambia mai anche se riordini.
-- **Doppio click** sul tab per rinominarlo. I nomi stanno in `localStorage`: valgono
-  per quel browser, non per il server.
+- **Doppio click** sul tab per rinominarlo. Con i profili accesi (`PROFILI`) i nomi e
+  l'ordine seguono **l'identita' del certificato**, non il browser: li ritrovi cambiando
+  browser o riaprendo in incognito. `localStorage` resta come cache, quindi la pagina
+  non aspetta la rete e funziona anche se il server non risponde.
 - **Trascinamento** dei tab per riordinarli. Riordinare sposta il `<li>`, non ricrea
   l'iframe: la sessione e lo scrollback non si toccano.
 - `Ctrl+Alt+C` (o il bottone **Congela**) ferma l'output del pannello e riversa la
@@ -205,6 +209,47 @@ giornata. Il controllo viene generato in entrambe le modalita': con `on` non sca
 e sta li' perche' passare a `optional` sia una variabile e non una revisione di
 sicurezza.
 
+**I profili non hanno bisogno di un backend.** Nomi e ordine dei tab stanno in un JSON
+per identita', e a servirlo e a scriverlo e' nginx stesso: il pacchetto di Rocky ha
+`ngx_http_dav_module` compilato, quindi il `PUT` lo accetta da se'. Niente processi in
+piu' da tenere in piedi, niente porte nuove, tutto dentro l'mTLS che c'e' gia'.
+
+L'identita' e' il **CN del certificato client**, l'unica cosa che il servizio sa di chi
+entra. nginx non ha una variabile per il CN, solo il DN intero: si estrae con una `map`,
+e attenzione al formato — `$ssl_client_s_dn` e' in RFC2253, che stampa il DN *al
+contrario*, e se il certificato ha un `emailAddress` quello viene **prima** del CN. La
+regex lo cerca quindi in mezzo alla stringa e non in testa.
+
+Il file deve chiamarsi esattamente come l'identita', e a garantirlo e' un backreference
+in una seconda `map`:
+
+```nginx
+map "$cn_client:$uri" $profilo_mio {
+    default                                   0;
+    "~^([A-Za-z0-9._-]+):/profili/\1\.json$"  1;
+}
+```
+
+Cosi' non serve fidarsi del percorso che arriva dal browser: chiedere il profilo di un
+altro da' 403, e lo da' anche scriverlo. Un CN assente, vuoto, troppo lungo o con
+caratteri che non stanno in un nome di file diventa identita' vuota, e senza identita'
+non si legge e non si scrive niente.
+
+Due conseguenze da tenere a mente:
+
+- **Un certificato per dispositivo vuol dire un profilo per dispositivo.** Due browser
+  che importano lo stesso `.p12` condividono i nomi; telefono e portatile con
+  certificati distinti restano separati. E' la stessa separazione che serve per
+  revocare un dispositivo solo.
+- **Vince l'ultimo che scrive.** Con due browser aperti insieme non c'e' fusione: chi
+  rinomina per ultimo sovrascrive. Per dei nomi di tab e' un prezzo accettabile.
+
+Una cosa che si sceglie di *non* propagare: quando la connessione cade, l'etichetta
+torna al default (vedi sotto), ma quel ritorno resta **locale**. Se salisse al server,
+una websocket caduta — un riavvio di nginx, il telefono che perde campo — cancellerebbe
+il nome su tutti i browser di quella identita'. Al server salgono solo le rinomine
+volute.
+
 **La porta 80 non e' tua.** L'mTLS difende la 443 e non dice niente sulla 80, dove la
 configurazione di serie di nginx tiene
 
@@ -245,6 +290,24 @@ si scrive. E' nella unit.
 **`tmux new-session -A`** riattacca se la sessione esiste, altrimenti la crea. E' cio'
 che rende il terminale persistente. Il rovescio: con `exit` la sessione muore per
 sempre e al riaggancio ne trovi una nuova e vuota.
+
+**`KillMode=process` nella unit, e non e' un dettaglio di stile.** Il server tmux non
+nasce come processo a se': lo avvia il *primo* `tmux new-session` che parte, quindi
+finisce nel cgroup di quella unit `ttyd@`. Col `KillMode` di default
+(`control-group`), fermare quella unit uccide tutto il suo cgroup — server tmux
+compreso — e con esso **tutte** le sessioni, non solo la sua. `install.sh`, che fa
+`restart` su ogni porta, azzerava quindi il lavoro aperto in tutti i terminali, mentre
+questo file ha sempre affermato il contrario.
+
+Su una macchina viva si e' visto cosi': dieci sessioni, un solo server tmux, e il suo
+processo nel cgroup di `ttyd@8708` — insieme a shell di lavoro, sessioni `ssh` e un
+processo di test. Un `systemctl restart ttyd@8708` le avrebbe portate via tutte.
+
+Con `KillMode=process` si ferma solo `ttyd`: client e server tmux restano, e al
+riaggancio `-A` ritrova la sessione. **Se stai aggiornando un'installazione nata prima
+di questa riga**, il primo `install.sh` e' ancora quello che azzera tutto: installa la
+unit nuova e fai solo `systemctl daemon-reload`, senza `restart`, lasciando che la
+`KillMode` nuova valga dal riavvio successivo.
 
 **Non mettere il `.p12` nel webroot.** Sembra comodo per importarlo dal telefono, ma
 e' la chiave di casa lasciata sotto lo zerbino — e lo zerbino sta sulla strada: il
@@ -293,6 +356,8 @@ conf/ttyd@.service.tmpl        unit template: una istanza per porta
 conf/nginx-terminali.conf.tmpl vhost: TLS, mTLS, websocket, proxy dei /termN/
 conf/nginx-80.conf.tmpl        porta 80: redirect a https (vedi PROTEGGI_80)
 conf/nginx-80-default.inc      blocco in piu' per PROTEGGI_80=default: prende il default server
+conf/nginx-profili-map.inc     le map che ricavano l'identita' dal certificato
+conf/nginx-profili.inc         /io e /profili/: il profilo per utente, servito da nginx
 conf/index.html.tmpl           la dashboard a tab
 conf/icone/                    favicon opzionali, copiati nel webroot e linkati se presenti
 certs/comune.inc               estensioni x509 e controlli condivisi

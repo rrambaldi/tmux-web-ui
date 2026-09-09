@@ -49,6 +49,7 @@ CA client      : $CA_CRT
 verifica client: ssl_verify_client $VERIFICA_CLIENT
 cert client in : $CERT_CLIENT_DIR
 porta 80       : $PROTEGGI_80
+profili utente : $PROFILI$([ "$PROFILI" = si ] && echo "  ($DIR_PROFILI)")
 RIEP
 
 case "$VERIFICA_CLIENT" in
@@ -63,6 +64,20 @@ case "$PROTEGGI_80" in
     no) echo "NOTA: PROTEGGI_80=no. La 80 resta come sta: se il default server di nginx serve $WEBROOT, la dashboard e' leggibile in chiaro." ;;
     *)  echo "ERRORE: PROTEGGI_80 deve essere 'nome', 'default' oppure 'no', non '$PROTEGGI_80'." >&2; exit 1 ;;
 esac
+
+case "$PROFILI" in
+    si) ;;
+    no) echo "NOTA: PROFILI=no. Nomi e ordine dei tab restano in localStorage, cioe' per browser." ;;
+    *)  echo "ERRORE: PROFILI deve essere 'si' oppure 'no', non '$PROFILI'." >&2; exit 1 ;;
+esac
+
+# Il path nell'URL e' fisso (/profili/<cn>.json) e sta scritto nella dashboard:
+# la directory si puo' spostare, l'ultimo pezzo del nome no.
+if [ "$PROFILI" = si ] && [ "$(basename "$DIR_PROFILI")" != profili ]; then
+    echo "ERRORE: DIR_PROFILI deve finire con /profili (adesso: $DIR_PROFILI)." >&2
+    echo "L'ultimo pezzo e' anche il path nell'URL, che la dashboard ha scritto dentro." >&2
+    exit 1
+fi
 
 # L'utente delle shell deve esistere: ttyd non lo crea e le unit fallirebbero
 # a raffica con Restart=always.
@@ -133,8 +148,16 @@ systemctl daemon-reload
 for p in "${PORTE[@]}"; do
     systemctl enable "ttyd@$p" >/dev/null
     # restart e non start: un rilancio dopo un cambio di unit deve ripartire
-    # con la configurazione nuova. Le sessioni tmux sopravvivono, sono
-    # processi a se' stanti: al riavvio ttyd si riattacca con -A.
+    # con la configurazione nuova.
+    #
+    # ATTENZIONE, e non e' teoria: le sessioni tmux sopravvivono SOLO se la
+    # unit ha KillMode=process. Il server tmux finisce nel cgroup della prima
+    # unit ttyd che parte, e col KillMode di default (control-group) questo
+    # restart lo ucciderebbe insieme a TUTTE le sessioni, non solo a quella
+    # della porta. Se stai aggiornando un'installazione nata prima di questa
+    # riga, il primo `install.sh` e' ancora quello che azzera tutto: fai
+    # `systemctl daemon-reload` senza restart, e lascia che la KillMode nuova
+    # valga dal riavvio successivo. [RR]
     systemctl restart "ttyd@$p"
 done
 sleep 1
@@ -201,10 +224,22 @@ for ((i = 0; i < N_TERM; i++)); do
     printf '    location /term%s/ { proxy_pass http://ttyd_%s/; }\n' "$i" "$((PORTA_BASE + i))" >> "$TMP/location"
 done
 
+# Profili: i due pezzi si aggiungono solo se accesi. Le map stanno a livello
+# http (fuori dal server), le location dentro: sono due segnaposto separati.
+if [ "$PROFILI" = si ]; then
+    cp "$RADICE/conf/nginx-profili-map.inc" "$TMP/profilimap"
+    sed -e "s|@RADICE_PROFILI@|$(dirname "$DIR_PROFILI")|g" \
+        "$RADICE/conf/nginx-profili.inc" > "$TMP/profili"
+else
+    : > "$TMP/profilimap"; : > "$TMP/profili"
+fi
+
 # Il blocco multiriga si inserisce col trucco classico di sed: "r file"
 # accoda il contenuto dopo la riga del segnaposto, "d" cancella il segnaposto.
 sed -e "/@BLOCCHI_UPSTREAM@/r $TMP/upstream" -e "/@BLOCCHI_UPSTREAM@/d" \
     -e "/@BLOCCHI_LOCATION@/r $TMP/location" -e "/@BLOCCHI_LOCATION@/d" \
+    -e "/@BLOCCHI_PROFILI_MAP@/r $TMP/profilimap" -e "/@BLOCCHI_PROFILI_MAP@/d" \
+    -e "/@BLOCCHI_PROFILI@/r $TMP/profili" -e "/@BLOCCHI_PROFILI@/d" \
     -e "s|@DOMINIO@|$DOMINIO|g" -e "s|@SSL_CRT@|$SSL_CRT|g" -e "s|@SSL_KEY@|$SSL_KEY|g" \
     -e "s|@CA_CRT@|$CA_CRT|g" -e "s|@WEBROOT@|$WEBROOT|g" \
     -e "s|@VERIFICA_CLIENT@|$VERIFICA_CLIENT|g" \
@@ -264,7 +299,25 @@ else
     fi
 fi
 
-# --- 7. SELinux ---------------------------------------------------------------
+# --- 7. directory dei profili -------------------------------------------------
+if [ "$PROFILI" = si ]; then
+    titolo "Profili per utente"
+    # Il controllo PRIMA di creare: il webroot e' pubblico sulla 80, e dei
+    # profili la' dentro sarebbero preferenze di persone identificate
+    # scaricabili in chiaro da chiunque.
+    case "$DIR_PROFILI" in
+        "$WEBROOT"|"$WEBROOT"/*)
+            echo "ERRORE: DIR_PROFILI ($DIR_PROFILI) e' dentro il webroot," >&2
+            echo "che e' servito in chiaro sulla porta 80. Mettila altrove." >&2
+            exit 1 ;;
+    esac
+    # 0700 e proprietario nginx: la scrittura la fa nginx, e nessun altro
+    # utente della macchina ha motivo di leggere le preferenze altrui.
+    install -d -m 700 -o nginx -g nginx "$DIR_PROFILI"
+    echo "$DIR_PROFILI  ($(stat -c '%U:%G %a' "$DIR_PROFILI"))"
+fi
+
+# --- 8. SELinux ---------------------------------------------------------------
 # Con SELinux enforcing nginx NON puo' aprire connessioni di rete verso ttyd:
 # il proxy_pass fallisce con 502 e in audit.log compare name_connect. Sulla
 # macchina originale non si vedeva perche' e' in Permissive.
@@ -273,9 +326,19 @@ if command -v selinuxenabled >/dev/null && selinuxenabled; then
     setsebool -P httpd_can_network_connect 1
     getsebool httpd_can_network_connect
     command -v restorecon >/dev/null && restorecon -R "$WEBROOT" || true
+
+    # nginx deve poter SCRIVERE i profili: di serie una directory sotto
+    # /var/lib ha un contesto che glielo vieta, e il PUT tornerebbe 500 con
+    # un AVC in audit.log. Serve il tipo rw, non quello di sola lettura.
+    if [ "$PROFILI" = si ] && command -v semanage >/dev/null; then
+        semanage fcontext -a -t httpd_sys_rw_content_t "${DIR_PROFILI}(/.*)?" 2>/dev/null \
+            || semanage fcontext -m -t httpd_sys_rw_content_t "${DIR_PROFILI}(/.*)?"
+        command -v restorecon >/dev/null && restorecon -R "$DIR_PROFILI" || true
+        echo "contesto SELinux dei profili: $(stat -c %C "$DIR_PROFILI" 2>/dev/null)"
+    fi
 fi
 
-# --- 8. firewall --------------------------------------------------------------
+# --- 9. firewall --------------------------------------------------------------
 if systemctl is-active --quiet firewalld 2>/dev/null; then
     titolo "firewalld"
     firewall-cmd --permanent --add-service=https >/dev/null
@@ -283,13 +346,13 @@ if systemctl is-active --quiet firewalld 2>/dev/null; then
     echo "443/tcp aperta"
 fi
 
-# --- 9. avvio nginx -----------------------------------------------------------
+# --- 10. avvio nginx -----------------------------------------------------------
 nginx -t
 systemctl enable nginx >/dev/null
 systemctl reload nginx 2>/dev/null || systemctl restart nginx
 echo "nginx: $(systemctl is-active nginx)"
 
-# --- 10. primo certificato client ---------------------------------------------
+# --- 11. primo certificato client ---------------------------------------------
 if [ -f "$CERT_CLIENT_DIR/$CLIENT_INIZIALE.p12" ]; then
     titolo "Certificato client"
     echo "gia' presente: $CERT_CLIENT_DIR/$CLIENT_INIZIALE.p12"
@@ -299,7 +362,7 @@ else
     "$RADICE/certs/emetti-client.sh" "$CLIENT_INIZIALE"
 fi
 
-# --- 11. verifica -------------------------------------------------------------
+# --- 12. verifica -------------------------------------------------------------
 "$RADICE/verifica.sh" || true
 
 cat <<FINE

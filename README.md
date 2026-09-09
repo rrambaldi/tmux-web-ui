@@ -207,6 +207,8 @@ current state is, and `./install.sh` prints its full summary before touching any
 | Reduce `N_TERM` | surplus instances keep running: `systemctl disable --now ttyd@8709` by hand |
 | Switch strict/diagnostic mTLS | `VERIFICA_CLIENT` (`on` / `optional`), then `./install.sh --salta-pacchetti` |
 | Close port 80 as well | `PROTEGGI_80` (`nome` / `default` / `no`), then `./install.sh --salta-pacchetti` |
+| Tie tab names to the user | `PROFILI` (`si` / `no`), then `./install.sh --salta-pacchetti` |
+| Reset somebody's profile | `rm $DIR_PROFILI/<cn>.json` — it is recreated on their next visit |
 | Add favicons | drop the files in `conf/icone/`, then `./install.sh --salta-pacchetti` |
 | Check a running installation | `sudo ./verifica.sh` — changes nothing, and covers the clear-text side too |
 
@@ -217,8 +219,10 @@ generic frontend — every feature here exists because something was annoying.
 
 - `Shift+←/→` moves through tabs in **visual order**; `Alt+0–9` jumps to a terminal's
   **id**, which never changes even after you reorder them.
-- **Double-click** a tab to rename it. Names live in `localStorage`: they belong to that
-  browser, not to the server.
+- **Double-click** a tab to rename it. With profiles on (`PROFILI`), names and order
+  follow **the certificate's identity** rather than the browser: you get them back in a
+  different browser, or in a private window. `localStorage` stays as a cache, so the
+  page never waits on the network and still works when the server does not answer.
 - **Drag** tabs to reorder. Reordering moves the `<li>`, it does not recreate the
   iframe, so the session and its scrollback are untouched.
 - `Ctrl+Alt+C` (or the **Congela** button) stops the pane's output and dumps the
@@ -270,6 +274,24 @@ watch but not type into. It is in the unit file.
 is what makes the terminal persistent. The flip side: `exit` destroys the session for
 good, and the next connection gets a new, empty one.
 
+**`KillMode=process` in the unit, and it is not a matter of taste.** The tmux server is
+not a process of its own: it is started by the *first* `tmux new-session` that runs, so
+it lands in that `ttyd@` unit's cgroup. With the default `KillMode`
+(`control-group`), stopping that one unit kills its whole cgroup — tmux server included
+— and with it **every** session, not just its own. `install.sh`, which restarts every
+port, therefore wiped the work open in all terminals, while this file claimed the
+opposite.
+
+On a live machine it looked like this: ten sessions, a single tmux server, and its
+process sitting in `ttyd@8708`'s cgroup alongside working shells, `ssh` sessions and a
+test run. One `systemctl restart ttyd@8708` would have taken all of them out.
+
+With `KillMode=process` only `ttyd` is stopped: the tmux client and server stay, and
+`-A` finds the session on reconnect. **If you are updating an installation older than
+this line**, the first `install.sh` is still the one that wipes everything: install the
+new unit and run only `systemctl daemon-reload`, no `restart`, letting the new
+`KillMode` take effect at the next restart.
+
 **Never put the `.p12` in the webroot.** It looks convenient for importing from a phone,
 but it is the house key under the doormat — and the doormat is on the street: the
 webroot is served by nginx's stock port-80 server too, in the clear, with no client
@@ -290,6 +312,45 @@ a server that already has them keeps its icons across reinstalls.
 nginx closes an idle session and the terminal drops into reconnect. The original host
 never noticed because tmux's status line refreshes every 15s and keeps the channel
 warm — that is, it worked by accident.
+
+**Profiles need no backend.** Tab names and order live in one JSON per identity, and
+nginx both serves and writes it: Rocky's package ships `ngx_http_dav_module` compiled
+in, so it accepts the `PUT` on its own. No extra process to keep alive, no new port,
+all of it behind the mTLS that is already there.
+
+The identity is the client certificate's **CN** — the only thing the service knows
+about whoever is connecting. nginx has no variable for the CN, only the whole DN, so it
+comes out of a `map`; mind the format, though: `$ssl_client_s_dn` is RFC2253, which
+prints the DN *reversed*, and if the certificate carries an `emailAddress` that comes
+**before** the CN. The regex therefore looks for it mid-string, not at the start.
+
+The file has to be named exactly after the identity, and a backreference in a second
+`map` is what guarantees it:
+
+```nginx
+map "$cn_client:$uri" $profilo_mio {
+    default                                   0;
+    "~^([A-Za-z0-9._-]+):/profili/\1\.json$"  1;
+}
+```
+
+That way the path coming from the browser never has to be trusted: asking for someone
+else's profile is a 403, and so is writing it. A CN that is missing, empty, too long, or
+carries characters that do not belong in a filename becomes an empty identity — and with
+no identity nothing is read and nothing is written.
+
+Two consequences worth remembering:
+
+- **One certificate per device means one profile per device.** Two browsers importing the
+  same `.p12` share their names; a phone and a laptop holding distinct certificates stay
+  separate. That is the same separation you need in order to revoke a single device.
+- **Last writer wins.** With two browsers open there is no merge: whoever renames last
+  overwrites. For tab names that is an acceptable price.
+
+One thing deliberately *not* propagated: when the connection drops the label reverts to
+its default (see below), but that revert stays **local**. Were it to reach the server, a
+dropped websocket — an nginx restart, a phone losing signal — would wipe the name in
+every browser of that identity. Only deliberate renames go up.
 
 **Arrow keys have two forms.** With application cursor mode on (DECCKM, which `vi` and
 full-screen interfaces set) an arrow is `ESC O A`; otherwise it is `ESC [ A`. The key bar
@@ -315,6 +376,8 @@ conf/ttyd@.service.tmpl        systemd template unit: one instance per port
 conf/nginx-terminali.conf.tmpl vhost: TLS, mTLS, websockets, /termN/ proxying
 conf/nginx-80.conf.tmpl        port 80: redirect to https (see PROTEGGI_80)
 conf/nginx-80-default.inc      extra block for PROTEGGI_80=default: takes the default server
+conf/nginx-profili-map.inc     the maps that derive the identity from the certificate
+conf/nginx-profili.inc         /io and /profili/: the per-user profile, served by nginx
 conf/index.html.tmpl           the tabbed dashboard
 conf/icone/                    optional favicons, copied to the webroot and linked if present
 certs/comune.inc               shared x509 extensions and sanity checks

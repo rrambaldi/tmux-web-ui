@@ -6,6 +6,7 @@
 # Un upstream per istanza ttyd: ttyd ascolta solo su 127.0.0.1, l'unico modo
 # per arrivarci e' passare da qui.
 @BLOCCHI_UPSTREAM@
+@BLOCCHI_PROFILI_MAP@
 
 server {
     # http2 e' utile con dieci websocket aperte insieme.
@@ -83,4 +84,5 @@ server {
     # location con prefisso che termina in "/" servita da proxy_pass, nginx
     # risponde da se' un 301 verso /term1/ conservando la query string.
 @BLOCCHI_LOCATION@
+@BLOCCHI_PROFILI@
 }

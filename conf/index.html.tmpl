@@ -502,7 +502,7 @@
       if (!preso) return;
       try { preso.releasePointerCapture(e.pointerId); } catch (err) {}
       preso.classList.remove('trascina');
-      if (trascinando) salvaOrdine();
+      if (trascinando) { salvaOrdine(); sincronizza(); }
       preso = null;
       trascinando = false;
     }
@@ -545,6 +545,7 @@
           var nuovo = span.textContent.replace(/\s+/g, ' ').trim();
           span.textContent = nuovo || PREDEFINITI[id];
           salvaNome(id, nuovo && nuovo !== PREDEFINITI[id] ? nuovo : '');
+          sincronizza();   // solo le rinomine VOLUTE salgono al server
         } else {
           span.textContent = precedente;
         }
@@ -613,6 +614,97 @@
         var ta = d && (d.querySelector('textarea.xterm-helper-textarea') || d.querySelector('textarea'));
         if (ta) ta.focus();
       } catch (err) { /* iframe non ancora pronto: ci pensa l'evento load */ }
+    }
+
+    // --- profilo sul server -------------------------------------------------
+    // Nomi e ordine stanno in localStorage, che vale per QUESTO browser. Con i
+    // profili accesi stanno anche sul server, in un JSON per identita', e
+    // cambiando browser si ritrovano.
+    //
+    // L'identita' e' il CN del certificato client: la pagina non lo conosce,
+    // glielo dice nginx su /io. Il file e' /profili/<cn>.json e nginx accetta
+    // il PUT da se' col modulo DAV -- non c'e' nessun backend da interrogare.
+    //
+    // Regola di fondo: LA CACHE DISEGNA, IL SERVER RICONCILIA. I tab si
+    // costruiscono subito da localStorage, come prima; quando (e se) arriva la
+    // risposta si sistemano. Cosi' la pagina non aspetta la rete, e con i
+    // profili spenti o il server irraggiungibile si comporta esattamente come
+    // prima, senza un errore in console. [RR]
+    var urlProfilo = null;      // null = nessun profilo: si resta su localStorage
+    var attesaPut = null;
+
+    function ordineCorrente() {
+      return pulsanti().map(function (b) { return Number(b.dataset.id); });
+    }
+
+    // Debounce: trascinando i tab salvaOrdine parte a ogni rilascio, e senza
+    // attesa si manderebbe una richiesta per ogni aggiustamento.
+    function sincronizza(subito) {
+      if (!urlProfilo) return;
+      if (attesaPut) { clearTimeout(attesaPut); attesaPut = null; }
+      function manda() {
+        attesaPut = null;
+        var corpo = JSON.stringify({ nomi: leggi(CHIAVE_NOMI, {}), ordine: ordineCorrente() });
+        fetch(urlProfilo, { method: 'PUT', body: corpo, cache: 'no-store' })
+          .catch(function () { /* offline: localStorage ha comunque il dato */ });
+      }
+      if (subito) manda(); else attesaPut = setTimeout(manda, 800);
+    }
+
+    function applicaProfilo(p) {
+      if (!p || typeof p !== 'object') return;
+
+      if (p.nomi && typeof p.nomi === 'object') {
+        scrivi(CHIAVE_NOMI, p.nomi);
+        TERMINALS.forEach(function (t) {
+          var btn = document.getElementById('term' + t.id + '-tab');
+          var span = btn && btn.querySelector('.etichetta');
+          if (!span || span.isContentEditable) return;   // rinomina in corso: non si tocca
+          span.textContent = p.nomi[t.id] || PREDEFINITI[t.id];
+        });
+      }
+
+      if (Array.isArray(p.ordine)) {
+        // Solo id che esistono davvero, e in coda quelli che il profilo non
+        // conosce (un terminale aggiunto dopo), come fa la costruzione
+        // iniziale. Riordinare sposta i <li>: gli iframe non si toccano,
+        // quindi ne' la sessione ne' lo scrollback ne soffrono.
+        var visti = {}, finale = [];
+        p.ordine.forEach(function (id) {
+          id = Number(id);
+          if (!visti[id] && document.getElementById('term' + id + '-tab')) { visti[id] = 1; finale.push(id); }
+        });
+        TERMINALS.forEach(function (t) { if (!visti[t.id]) finale.push(t.id); });
+        finale.forEach(function (id) {
+          var btn = document.getElementById('term' + id + '-tab');
+          if (btn) tabs.insertBefore(btn.parentElement, barraDx);
+        });
+        scrivi(CHIAVE_ORDINE, finale);
+      }
+    }
+
+    function caricaProfilo() {
+      if (!window.fetch) return;   // browser troppo vecchio: localStorage e basta
+      fetch('/io', { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.text() : null; })
+        .then(function (id) {
+          id = (id || '').trim();
+          // /io che non risponde vuol dire profili spenti nel vhost; identita'
+          // vuota vuol dire che nginx non ha ricavato un CN utilizzabile dal
+          // certificato. In entrambi i casi si resta su localStorage.
+          if (!/^[A-Za-z0-9._-]{1,64}$/.test(id)) return;
+          urlProfilo = '/profili/' + encodeURIComponent(id) + '.json';
+          return fetch(urlProfilo, { cache: 'no-store' }).then(function (r) {
+            // 404 = primo accesso con questa identita': si semina il profilo
+            // con quello che questo browser ha gia', invece di partire vuoti.
+            if (r.status === 404) { sincronizza(true); return; }
+            // 403 e simili arrivano con un corpo di testo, non JSON: si lascia
+            // stare senza provare a interpretarlo.
+            if (!r.ok) return;
+            return r.json().then(applicaProfilo, function () {});
+          });
+        })
+        .catch(function () { /* rete o CSP: si resta su localStorage */ });
     }
 
     // --- adattamento allo schermo -------------------------------------------
@@ -883,6 +975,11 @@
     // muore (exit dalla shell: `tmux new-session -A` al riaggancio ne crea una
     // NUOVA, non riattacca quella di prima) l'etichetta e' bugiarda, quindi
     // torna al default e la preferenza salvata viene cancellata. [RR]
+    //
+    // Questo azzeramento resta LOCALE, di proposito: non chiama sincronizza().
+    // Col profilo condiviso, una websocket caduta -- un riavvio di nginx, il
+    // telefono che perde campo -- cancellerebbe il nome su tutti i browser di
+    // quella identita'. Al server salgono solo le rinomine volute. [RR]
     function reimpostaNome(id) {
       var btn = document.getElementById('term' + id + '-tab');
       if (!btn) return;
@@ -944,6 +1041,10 @@
 
     // Primo tab subito, gli altri a richiesta.
     caricaPannello(panes.querySelector('.tab-pane.active'));
+
+    // Il profilo per ultimo: i tab sono gia' a schermo con i nomi in cache, e
+    // quando la risposta arriva si limita a sistemarli.
+    caricaProfilo();
   </script>
 </body>
 </html>
