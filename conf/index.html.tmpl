@@ -1768,14 +1768,44 @@
     // Col profilo condiviso, una websocket caduta -- un riavvio di nginx, il
     // telefono che perde campo -- cancellerebbe il nome su tutti i browser di
     // quella identita'. Al server salgono solo le rinomine volute. [RR]
+    // QUANDO NON AZZERARE. "Connection Closed" non vuol dire sempre che la
+    // sessione e' morta, e distinguere non e' un dettaglio: qui si cancella
+    // una cosa scritta a mano dall'utente.
+    //
+    // Ricaricando la pagina le websocket cadono per forza, e ttyd fa in tempo
+    // a scriverlo prima che la pagina se ne vada: il nome veniva azzerato
+    // proprio durante l'F5, ed era per questo che non sopravviveva a un
+    // ricaricamento -- il difetto e' stato trovato guardando il profilo sul
+    // server, 73 byte con "nomi":{} scritti da PUT tutte andate a buon fine.
+    //
+    // Stessa cosa quando il telefono si blocca o si passa a un'altra
+    // applicazione: al ritorno si vede la coda di QUELLA disconnessione, non
+    // un exit, quindi per qualche secondo dopo che la pagina torna a schermo
+    // non si azzera niente. [RR]
+    var inUscita = false, tornata = 0, GRAZIA = 4000;
+    window.addEventListener('pagehide', function () { inUscita = true; });
+    window.addEventListener('beforeunload', function () { inUscita = true; });
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) tornata = Date.now();
+    });
+
     function reimpostaNome(id) {
+      if (inUscita || document.hidden || (tornata && Date.now() - tornata < GRAZIA)) return;
       var btn = document.getElementById('term' + id + '-tab');
       if (!btn) return;
       var span = btn.querySelector('.etichetta');
       if (!span || span.isContentEditable) return;   // rinomina in corso: non si tocca
       if (span.textContent === PREDEFINITI[id]) return;
       span.textContent = PREDEFINITI[id];
-      salvaNome(id, '');
+
+      // Senza tocca(): non e' una modifica VOLUTA, e non deve vincere sul
+      // profilo del server. Se lo facesse, una sessione finita qui
+      // cancellerebbe il nome su tutti i browser di questa identita' al
+      // primo ricaricamento -- che e' esattamente cio' che questo
+      // azzeramento, restando locale, vuole evitare.
+      var n = leggi(CHIAVE_NOMI, {});
+      delete n[id];
+      scrivi(CHIAVE_NOMI, n);
     }
 
     function agganciaOverlay(f, id) {

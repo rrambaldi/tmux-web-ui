@@ -225,7 +225,15 @@ generico: sono tutte cose nate da un fastidio concreto.
   da 630, e li' il font e' quello che si userebbe su uno schermo da 630.
 - Quando la connessione cade, il **nome del tab torna al default**: se hai fatto `exit`
   la sessione tmux e' morta e al riaggancio `-A` ne crea una nuova, quindi l'etichetta
-  descriverebbe qualcosa che non esiste piu'.
+  descriverebbe qualcosa che non esiste piu'. Con tre eccezioni, perche' qui si cancella
+  una cosa scritta a mano: **non** si azzera niente mentre la pagina se ne va
+  (`pagehide`/`beforeunload`), mentre non e' a schermo, e per qualche secondo dopo che ci
+  e' tornata. Ricaricando, le websocket cadono per forza e ttyd fa in tempo a scrivere
+  "Connection Closed": senza quelle guardie il nome veniva azzerato proprio durante l'F5 —
+  ed e' il difetto che faceva sembrare che i nomi non si salvassero. Al ritorno da un
+  telefono bloccato vale lo stesso: quella e' la coda della disconnessione di sistema,
+  non un `exit`. L'azzeramento inoltre **non aggiorna la data** del profilo: non e' una
+  modifica voluta, e non deve vincere su quello che c'e' sul server.
 - I messaggi di ttyd ("Reconnecting…", "Press ⏎ to Reconnect") sono forzati a
   **sans-serif** via `MutationObserver`: sono un `<div>` che ttyd appende dentro
   l'iframe con lo stile tutto in linea, quindi ne' il CSS della pagina ne' una regola

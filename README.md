@@ -296,7 +296,15 @@ generic frontend — every feature here exists because something was annoying.
   a 630px screen would get.
 - When the connection drops, the **tab name resets to its default**: if you typed
   `exit`, the tmux session is gone and `-A` will create a fresh one on reconnect, so the
-  label would be describing something that no longer exists.
+  label would be describing something that no longer exists. With three exceptions,
+  because what gets deleted here is something a person typed: nothing is reset while the
+  page is going away (`pagehide`/`beforeunload`), while it is not on screen, or for a few
+  seconds after it comes back. On reload the websockets necessarily drop and ttyd has
+  time to write "Connection Closed": without those guards the name was wiped during the
+  F5 itself — the defect that made names look like they were never saved. Coming back
+  from a locked phone is the same story: that is the tail of a system disconnect, not an
+  `exit`. The reset also **does not touch the profile timestamp**: it is not a deliberate
+  change, and must not win over what the server holds.
 - ttyd's own messages ("Reconnecting…", "Press ⏎ to Reconnect") are forced to
   **sans-serif** through a `MutationObserver`. They are a `<div>` that ttyd appends
   inside the iframe with all styling inline, so neither the page's CSS nor a rule
