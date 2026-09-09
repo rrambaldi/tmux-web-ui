@@ -136,6 +136,37 @@
       border-top: 1px solid var(--acc); background: #14231e;
     }
 
+    /* --- griglia: piu' terminali insieme ------------------------------------
+       Le celle NON spostano i pannelli nel DOM: si accendono con display e si
+       mettono in fila con la proprieta' order. Spostare un <iframe> lo
+       ricarica -- websocket chiusa, scrollback perso -- ed e' il motivo per
+       cui qui si tocca solo il CSS e mai la struttura. [RR]
+       Le soglie di quando la griglia ci sta stanno nel JS (GRIGLIE), come per
+       SCHERMI: qui si reagisce alle classi che mette sul body. */
+    body.griglia .tab-content {
+      display: grid; gap: 2px;
+      background: #333;            /* si vede solo nelle fughe fra le celle */
+    }
+    body.griglia-2 .tab-content { grid-template-columns: 1fr 1fr; }
+    body.griglia-4 .tab-content { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+    body.griglia-6 .tab-content { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; }
+
+    /* Bootstrap tiene nascosti i pannelli non attivi e a opacita' 0 quelli
+       .fade: in griglia ne servono N a schermo, non uno. Il selettore passa
+       per l'id per battere .tab-content > .tab-pane senza !important. */
+    body.griglia #terminalTabsContent > .tab-pane.in-griglia {
+      display: block; opacity: 1; height: 100%; min-width: 0; min-height: 0;
+    }
+
+    /* Quale cella riceve i tasti. E' un ::after e non un bordo perche' il
+       bordo stringerebbe la cella, e quindi il terminale: il pty verrebbe
+       ridimensionato a ogni spostamento solo per accendere una cornice.
+       z-index sotto .gelo (10), che deve restare sopra. */
+    body.griglia .tab-pane.in-griglia.active::after {
+      content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none;
+      border: 2px solid var(--acc); box-shadow: inset 0 0 12px rgba(53,227,164,.14);
+    }
+
     /* --- adattamento allo schermo --- */
     /* I limiti stanno SOLO nel JS (vedi SCHERMI): qui si reagisce alle classi
        che mette sul body. Con una media query qui e un matchMedia la', prima
@@ -296,6 +327,16 @@
     bottoneSu.type = 'button';
     bottoneSu.className = 'bottone-gela';
     bottoneSu.textContent = 'A+';
+    // Piu' terminali insieme, dove c'e' spazio. Un bottone solo che cicla
+    // 1 -> 2 -> 4 -> 6 fra i formati che lo schermo regge: tre bottoni in piu'
+    // su una barra che ne ha gia' cinque si notano piu' della funzione che
+    // offrono. Dove non ci sta nemmeno la griglia da 2 non compare affatto,
+    // com'e' per la barra dei tasti sul desktop.
+    var bottoneGriglia = document.createElement('button');
+    bottoneGriglia.type = 'button';
+    bottoneGriglia.className = 'bottone-gela';
+    bottoneGriglia.textContent = '⊞ Griglia';
+
     var bottoneGela = document.createElement('button');
     bottoneGela.type = 'button';
     bottoneGela.className = 'bottone-gela';
@@ -304,9 +345,11 @@
     var hint = document.createElement('span');
     hint.className = 'hint';
     hint.textContent = 'Shift+←/→ cambia · Alt+0–9 salta · doppio click rinomina · trascina riordina';
+    var HINT_NORMALE = hint.textContent;
     barraDx.appendChild(hint);
     barraDx.appendChild(bottoneGiu);
     barraDx.appendChild(bottoneSu);
+    barraDx.appendChild(bottoneGriglia);
     barraDx.appendChild(bottoneTastiera);
     barraDx.appendChild(bottoneStoria);
     barraDx.appendChild(bottoneGela);
@@ -343,6 +386,9 @@
       var conFuoco = document.activeElement;
       if (conFuoco && conFuoco.classList && conFuoco.classList.contains('nav-link')) conFuoco.blur();
       var pane = document.querySelector(e.target.getAttribute('data-bs-target'));
+      // In griglia il tab non cambia la vista intera: se quel terminale non e'
+      // gia' a schermo prende il posto della cella che stiamo lasciando.
+      if (idsGriglia.length > 1) sostituisciCella(pane, e.relatedTarget);
       caricaPannello(pane);
       if (!inModifica) dagliIlFuoco(pane);
     });
@@ -550,7 +596,13 @@
       if (!preso) return;
       try { preso.releasePointerCapture(e.pointerId); } catch (err) {}
       preso.classList.remove('trascina');
-      if (trascinando) { salvaOrdine(); sincronizza(); }
+      // Le celle stanno nell'ordine dei tab: se l'ordine e' cambiato, la
+      // griglia va ridisposta (i pannelli non si toccano, cambia solo order).
+      if (trascinando) {
+        salvaOrdine();
+        if (idsGriglia.length > 1) applicaGriglia(idsGriglia);
+        sincronizza();
+      }
       preso = null;
       trascinando = false;
     }
@@ -639,6 +691,7 @@
       // quindi contentDocument e' accessibile.
       f.addEventListener('load', function () {
         agganciaTasti(f);
+        agganciaCella(f, pane);
         agganciaOverlay(f, pane.id.slice(4));
         attendiTerminale(pane, 100);
         if (pane.classList.contains('active') && !inModifica && !gelo) dagliIlFuoco(pane);
@@ -692,7 +745,9 @@
       if (attesaPut) { clearTimeout(attesaPut); attesaPut = null; }
       function manda() {
         attesaPut = null;
-        var corpo = JSON.stringify({ nomi: leggi(CHIAVE_NOMI, {}), ordine: ordineCorrente() });
+        var corpo = JSON.stringify({
+          nomi: leggi(CHIAVE_NOMI, {}), ordine: ordineCorrente(), griglia: statoGriglia()
+        });
         fetch(urlProfilo, { method: 'PUT', body: corpo, cache: 'no-store' })
           .catch(function () { /* offline: localStorage ha comunque il dato */ });
       }
@@ -729,6 +784,19 @@
         });
         scrivi(CHIAVE_ORDINE, finale);
       }
+
+      // La griglia per ultima: le celle stanno nell'ordine dei tab, che il
+      // blocco qui sopra puo' aver appena cambiato. Si ridispone anche quando
+      // il profilo non parla di griglia (versione vecchia, o scritta da un
+      // telefono): l'ordine nuovo va comunque applicato alle celle.
+      if (p.griglia && typeof p.griglia === 'object') {
+        var n = Number(p.griglia.celle);
+        celleVolute = GRIGLIE.some(function (g) { return g.celle === n; }) ? n : 1;
+        if (Array.isArray(p.griglia.ids)) idsGriglia = p.griglia.ids.map(Number);
+      }
+      var eff = celleEffettive();
+      applicaGriglia(eff > 1 ? ripulisci(idsGriglia, eff) : []);
+      scrivi(CHIAVE_GRIGLIA, statoGriglia());
     }
 
     function caricaProfilo() {
@@ -764,10 +832,14 @@
     // Al font si mette mano perche' la larghezza in colonne dipende da quello:
     // a 13px su un telefono da 390px ci stanno una cinquantina di colonne, a
     // 11px una sessantina, e la differenza si vede in htop o in un diff.
+    // Il limite e' il NUMERO: la media query si ricava da quello, cosi' la
+    // misura resta scritta una volta sola anche adesso che la si confronta
+    // pure con la larghezza di una cella (vedi schermoDi).
     var SCHERMI = [
-      { classe: 'schermo-piccolo', query: '(max-width: 480px)', font: 11 },
-      { classe: 'schermo-medio',   query: '(max-width: 900px)', font: 12 }
+      { classe: 'schermo-piccolo', max: 480, font: 11 },
+      { classe: 'schermo-medio',   max: 900, font: 12 }
     ];
+    SCHERMI.forEach(function (x) { x.query = '(max-width: ' + x.max + 'px)'; });
 
     // La scelta a mano con A− / A+ batte l'automatico. Sta in localStorage e
     // NON nel profilo sul server, di proposito: la dimensione giusta dipende
@@ -791,6 +863,19 @@
       return null;                     // schermo largo: tutto come lo fa ttyd
     }
 
+    // In griglia la larghezza che conta non e' quella della finestra ma quella
+    // della CELLA: un 1920 diviso in tre da' celle da 630, e li' il font giusto
+    // e' quello che si userebbe su uno schermo da 630. Fuori dalla griglia il
+    // pannello e' largo quanto la finestra, e questa ritorna quello che
+    // ritornava schermoAttuale(). [RR]
+    function schermoDi(pane) {
+      var l = 0;
+      try { l = pane ? pane.getBoundingClientRect().width : 0; } catch (err) {}
+      if (!l) return schermoAttuale();   // pannello nascosto: non c'e' niente da misurare
+      for (var i = 0; i < SCHERMI.length; i++) if (l <= SCHERMI[i].max) return SCHERMI[i];
+      return null;
+    }
+
     function classiSchermo() {
       var s = schermoAttuale();
       SCHERMI.forEach(function (x) { document.body.classList.toggle(x.classe, x === s); });
@@ -805,7 +890,7 @@
       if (!term) return;
       try {
         if (!pane.dataset.fontTtyd) pane.dataset.fontTtyd = String(term.options.fontSize);
-        var s = schermoAttuale();
+        var s = schermoDi(pane);
         var voluto = fontAMano() || (s && s.font) || Number(pane.dataset.fontTtyd);
         if (term.options.fontSize === voluto) return;
         term.options.fontSize = voluto;
@@ -851,7 +936,7 @@
       var term = termDi(pannelloAttivo());
       try { if (term && term.options.fontSize) return Number(term.options.fontSize); }
       catch (err) {}
-      var s = schermoAttuale();
+      var s = schermoDi(pannelloAttivo());
       return fontAMano() || (s && s.font) || 13;
     }
 
@@ -859,7 +944,7 @@
     // la scelta a mano si puo' buttare.
     function fontAutomatico() {
       var pane = pannelloAttivo();
-      var s = schermoAttuale();
+      var s = schermoDi(pane);
       return (s && s.font) || Number(pane && pane.dataset.fontTtyd) || 13;
     }
 
@@ -885,6 +970,232 @@
 
     bottoneGiu.addEventListener('click', function () { cambiaFont(-1); });
     bottoneSu.addEventListener('click',  function () { cambiaFont(+1); });
+
+    // --- griglia: 2, 4 o 6 terminali insieme ---------------------------------
+    // Solo dove c'e' spazio: sotto i ~600px per cella un terminale non tiene
+    // 80 colonne a un font leggibile, e sei finestrelle illeggibili valgono
+    // meno di una sola che si legge. Le soglie stanno qui, il CSS reagisce
+    // alle classi che mettiamo sul body -- stesso patto di SCHERMI.
+    //
+    // COS'E' LA SELEZIONE. La griglia e' un INSIEME di terminali, non
+    // un'assegnazione cella per cella: l'ordine in cui compaiono e' quello dei
+    // tab, percio' le celle si spostano trascinando i tab come sempre, senza
+    // imparare un secondo modo di riordinare. Da qui una regola sola per il
+    // click su un tab, per Alt+cifra e per Shift+frecce:
+    //
+    //     vai al terminale X = se e' gia' a schermo, la sua cella diventa
+    //     quella attiva; se non c'e', X prende il posto della cella attiva.
+    //
+    // Lo stesso terminale non puo' stare in due celle, e non e' una scelta di
+    // gusto: sono due client sulla stessa sessione tmux, e tmux dimensiona la
+    // finestra sul client piu' piccolo -- le due celle si strozzerebbero a
+    // vicenda. [RR]
+    var GRIGLIE = [
+      { celle: 2, query: '(min-width: 1200px)' },
+      { celle: 4, query: '(min-width: 1500px) and (min-height: 800px)' },
+      { celle: 6, query: '(min-width: 1900px) and (min-height: 800px)' }
+    ];
+    var CHIAVE_GRIGLIA = 'terminal-dashboard-griglia';
+
+    var celleVolute = 1;   // la PREFERENZA, anche quando lo schermo non la regge
+    var idsGriglia = [];   // i terminali a schermo adesso; meno di due = griglia spenta
+
+    function disponibili() {
+      var out = [];
+      GRIGLIE.forEach(function (g) {
+        try { if (window.matchMedia(g.query).matches) out.push(g.celle); }
+        catch (err) { /* niente matchMedia: niente griglia, e la pagina resta quella di prima */ }
+      });
+      return out;
+    }
+
+    // La preferenza puo' valere piu' di quello che lo schermo regge: sul
+    // telefono resta salvata e non si applica, invece di essere azzerata. Il
+    // profilo e' condiviso fra browser, e il telefono non deve buttare la
+    // griglia scelta sul portatile. Se lo spazio basta per meno celle di
+    // quelle chieste si usa il formato piu' grande che ci sta. [RR]
+    function celleEffettive() {
+      var d = disponibili(), n = 1;
+      for (var i = 0; i < d.length; i++) if (d[i] <= celleVolute) n = d[i];
+      return n;
+    }
+
+    function celleAdesso() { return idsGriglia.length > 1 ? idsGriglia.length : 1; }
+    function statoGriglia() { return { celle: celleVolute, ids: idsGriglia }; }
+    function pannelloDi(id) { return document.getElementById('term' + id); }
+    function idDi(pane) { return pane ? Number(pane.id.slice(4)) : NaN; }
+
+    // Chi entra in griglia quando la si apre: il terminale attivo e i
+    // successivi nell'ordine dei tab, ciclico come Shift+frecce.
+    function insiemeIniziale(n) {
+      var ord = ordineCorrente();
+      var i = ord.indexOf(idDi(pannelloAttivo()));
+      if (i < 0) i = 0;
+      var out = [];
+      for (var k = 0; k < n && k < ord.length; k++) out.push(ord[(i + k) % ord.length]);
+      return out;
+    }
+
+    // Tiene solo id che esistono davvero, senza ripetizioni, e completa con i
+    // successivi se il profilo ne portava meno di n: un profilo scritto da una
+    // versione futura, o da uno schermo piu' grande, non deve lasciare celle
+    // vuote ne' due volte lo stesso terminale.
+    function ripulisci(ids, n) {
+      var visti = {}, out = [];
+      (Array.isArray(ids) ? ids : []).forEach(function (id) {
+        id = Number(id);
+        if (!visti[id] && pannelloDi(id) && out.length < n) { visti[id] = 1; out.push(id); }
+      });
+      insiemeIniziale(n).forEach(function (id) {
+        if (!visti[id] && out.length < n) { visti[id] = 1; out.push(id); }
+      });
+      return out;
+    }
+
+    function applicaGriglia(ids) {
+      idsGriglia = ids;
+      var n = celleAdesso();
+      var dentro = {};
+      ids.forEach(function (id) { dentro[id] = 1; });
+
+      // L'ordine delle celle e' quello dei tab: si riscrive su TUTTI i
+      // pannelli, cosi' dopo un trascinamento basta richiamare questa.
+      ordineCorrente().forEach(function (id, i) {
+        var pane = pannelloDi(id);
+        if (!pane) return;
+        pane.style.order = i;
+        pane.classList.toggle('in-griglia', n > 1 && !!dentro[id]);
+      });
+
+      document.body.classList.toggle('griglia', n > 1);
+      GRIGLIE.forEach(function (g) {
+        document.body.classList.toggle('griglia-' + g.celle, n === g.celle);
+      });
+
+      // La cella attiva dev'essere una di quelle a schermo, o i tasti
+      // andrebbero a un terminale che non si vede.
+      if (n > 1 && !dentro[idDi(pannelloAttivo())]) {
+        var primo = ordineCorrente().filter(function (id) { return dentro[id]; })[0];
+        if (primo !== undefined) vaiPerId(primo);
+      }
+      ids.forEach(function (id) { caricaPannello(pannelloDi(id)); });
+
+      etichetteGriglia();
+      // Le celle hanno una misura nuova. Il fit del terminale lo rifa' ttyd da
+      // se' sul resize del proprio iframe; il font invece lo decidiamo noi e
+      // dipende dalla larghezza della cella, che esiste solo dopo che il
+      // browser ha disposto la griglia -- quindi non adesso, ma subito dopo.
+      setTimeout(adattaTutto, 0);
+      setTimeout(adattaTutto, 200);
+    }
+
+    // La regola unica, applicata dove i tab cambiano davvero: shown.bs.tab
+    // scatta per il click sul tab, per Alt+cifra e per Shift+frecce, quindi
+    // basta questa e non ci sono tre strade da tenere allineate.
+    // e.relatedTarget e' il tab di PRIMA, cioe' la cella che stiamo lasciando:
+    // e' quella che cede il posto.
+    function sostituisciCella(nuovo, tabPrima) {
+      var id = idDi(nuovo);
+      if (idsGriglia.indexOf(id) >= 0) return;   // gia' a schermo: cambia solo la cella attiva
+      var uscente = tabPrima ? Number(tabPrima.dataset.id) : idsGriglia[0];
+      var i = idsGriglia.indexOf(uscente);
+      if (i < 0) i = idsGriglia.length - 1;      // cella di prima sconosciuta: cede l'ultima
+      var ids = idsGriglia.slice();
+      ids[i] = id;
+      applicaGriglia(ids);
+      salvaGriglia();
+    }
+
+    // Cliccare DENTRO un terminale non arriva al genitore: l'evento resta nel
+    // documento dell'iframe. Per sapere quale cella riceve i tasti si ascolta
+    // li' dentro, come si fa gia' per i tasti speciali. Da qui si passa per
+    // vaiPerId, cosi' cambiare cella col mouse e cambiarla con Shift+frecce
+    // finiscono nello stesso posto. [RR]
+    function agganciaCella(f, pane) {
+      try {
+        var d = f.contentDocument;
+        if (!d || d.__cellaAgganciata) return;
+        d.__cellaAgganciata = true;
+        function scegli() {
+          if (idsGriglia.length < 2 || inModifica) return;
+          if (pane.classList.contains('active')) return;
+          vaiPerId(idDi(pane));
+        }
+        d.addEventListener('pointerdown', scegli, true);
+        d.addEventListener('focusin', scegli, true);
+      } catch (err) { /* iframe non leggibile: la cella si sceglie dai tab */ }
+    }
+
+    function salvaGriglia() {
+      scrivi(CHIAVE_GRIGLIA, statoGriglia());
+      sincronizza();
+    }
+
+    function apriGriglia(n) {
+      celleVolute = n;
+      var eff = celleEffettive();
+      applicaGriglia(eff > 1 ? ripulisci(idsGriglia, eff) : []);
+      salvaGriglia();
+    }
+
+    // Il ciclo salta i formati che lo schermo non regge: su un portatile da
+    // 1366 il bottone fa 1 <-> 2 e basta, senza passare per stati che non si
+    // possono vedere.
+    function commutaGriglia() {
+      if (gelo || inModifica) return;
+      var scelte = [1].concat(disponibili());
+      if (scelte.length < 2) return;
+      var i = scelte.indexOf(celleAdesso());
+      apriGriglia(scelte[(i + 1) % scelte.length]);
+    }
+
+    function etichetteGriglia() {
+      var scelte = disponibili();
+      var n = celleAdesso();
+      bottoneGriglia.style.display = scelte.length ? '' : 'none';
+      bottoneGriglia.textContent = n > 1 ? '⊞ ' + n : '⊞ Griglia';
+      bottoneGriglia.classList.toggle('acceso', n > 1);
+      bottoneGriglia.setAttribute('aria-pressed', n > 1 ? 'true' : 'false');
+      bottoneGriglia.title = 'Terminali insieme: ' + [1].concat(scelte).join(' → ') +
+        ' → … (Ctrl+Alt+G)';
+      // In griglia i tab e i click vogliono dire una cosa in piu', e il posto
+      // dove dirlo e' quello dove gia' si spiegano le scorciatoie.
+      hint.textContent = n > 1
+        ? 'clic su un tab: entra nella cella attiva · clic in un terminale: sceglie la cella'
+        : HINT_NORMALE;
+    }
+
+    bottoneGriglia.addEventListener('click', commutaGriglia);
+
+    // Finestra ridimensionata: se lo spazio non basta piu' la griglia si
+    // stringe da se'. La PREFERENZA non si tocca, percio' riallargando si
+    // ritrova il formato di prima senza doverlo richiedere.
+    GRIGLIE.forEach(function (g) {
+      try {
+        var mq = window.matchMedia(g.query);
+        var f = function () {
+          var eff = celleEffettive();
+          if (eff === celleAdesso()) { etichetteGriglia(); return; }
+          applicaGriglia(eff > 1 ? ripulisci(idsGriglia, eff) : []);
+        };
+        if (mq.addEventListener) mq.addEventListener('change', f);
+        else if (mq.addListener) mq.addListener(f);   // Safari vecchi
+      } catch (err) {}
+    });
+
+    // All'avvio: la preferenza salvata, applicata solo per quanto lo schermo
+    // regge. Va chiamata dopo il primo pannello, perche' gli altri iframe
+    // nascono qui.
+    function avviaGriglia() {
+      var salvato = leggi(CHIAVE_GRIGLIA, null);
+      if (salvato && typeof salvato === 'object') {
+        var n = Number(salvato.celle);
+        celleVolute = GRIGLIE.some(function (g) { return g.celle === n; }) ? n : 1;
+        if (Array.isArray(salvato.ids)) idsGriglia = salvato.ids.map(Number);
+      }
+      var eff = celleEffettive();
+      applicaGriglia(eff > 1 ? ripulisci(idsGriglia, eff) : []);
+    }
 
     // --- modalita' storia (copy-mode di tmux) --------------------------------
     // Ctrl-B [ mette tmux in copy-mode: le frecce e PagSu/Giu smettono di
@@ -1093,6 +1404,15 @@
         return;   // congelati non si naviga: il tab resta quello che stai copiando
       }
 
+      // Ctrl+Alt+G cicla la griglia. Dopo il blocco del congelamento: a
+      // pannello congelato si sta copiando, e cambiare il numero di celle
+      // sposterebbe sotto il mouse proprio il testo che si sta selezionando.
+      if (e.ctrlKey && e.altKey && !e.metaKey && (e.key === 'g' || e.key === 'G')) {
+        e.preventDefault(); e.stopPropagation();
+        commutaGriglia();
+        return;
+      }
+
       // Ctrl+Ins copia la selezione fatta dentro xterm: ttyd non ha nessuna
       // scorciatoia per copiare, si affida solo all'auto-copia su selezione
       // che il browser blocca quando non e' dentro un gesto utente.
@@ -1227,6 +1547,9 @@
 
     // Primo tab subito, gli altri a richiesta.
     caricaPannello(panes.querySelector('.tab-pane.active'));
+
+    // La griglia dopo: se era accesa, e' qui che nascono gli altri iframe.
+    avviaGriglia();
 
     // Il profilo per ultimo: i tab sono gia' a schermo con i nomi in cache, e
     // quando la risposta arriva si limita a sistemarli.

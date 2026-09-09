@@ -225,6 +225,25 @@ generic frontend — every feature here exists because something was annoying.
   page never waits on the network and still works when the server does not answer.
 - **Drag** tabs to reorder. Reordering moves the `<li>`, it does not recreate the
   iframe, so the session and its scrollback are untouched.
+- **Grid**: the `⊞ Griglia` button in the header (or `Ctrl+Alt+G`) shows **2, 4 or 6
+  terminals at once**, cycling through the layouts the screen can actually hold — 2 side
+  by side, 4 as 2×2, 6 as 3×2. It only appears where there is real room (2 from 1200px,
+  4 from 1500×800, 6 from 1900×800): under roughly 600px per cell a terminal will not
+  hold 80 columns at a readable font, and six unreadable panes are worth less than one
+  you can read; on a phone the button is not there at all. The grid is a **set** of
+  terminals, not a cell-by-cell assignment: they appear in tab order, so you rearrange
+  cells by dragging tabs exactly as before, with no second mechanism to learn. That
+  gives one rule, used by a click on a tab, by `Alt+0–9` and by `Shift+←/→`: **if that
+  terminal is already on screen its cell becomes the active one, and if it is not it
+  takes the active cell's place**. The active cell has the green frame and is the one
+  that gets keystrokes, `Congela`, `Storia` and the key bar; clicking inside a terminal
+  picks it too. The same terminal cannot sit in two cells, and that is not a matter of
+  taste: they would be two clients on one tmux session, and tmux sizes the window to the
+  smallest client. Layout and set live in the profile, so they follow you across
+  browsers; when the screen cannot hold the chosen layout it shrinks to the largest one
+  that fits **without forgetting the preference**, so a phone never wipes the grid you
+  set up on a laptop. Cells move no iframe in the DOM — that would reload it and lose the
+  scrollback — they are switched on with `display` and lined up with `order`.
 - `Ctrl+Alt+C` (or the **Congela** button) stops the pane's output and dumps the
   visible screen into a `<pre>`, where mouse selection and `Ctrl+C` always work. This
   exists because ttyd copies on every selection change via
@@ -262,7 +281,9 @@ generic frontend — every feature here exists because something was annoying.
   what decides how many columns fit: on a 390px phone that is roughly fifty versus sixty,
   and you can see the difference in `htop` or a `diff`. The breakpoints live in exactly
   one place, `SCHERMI` in the JS — the CSS has no media queries of its own, it reacts to
-  classes the JS puts on `body`.
+  classes the JS puts on `body`. In grid mode the width that counts is the **cell's**,
+  not the window's: a 1920 split in three gives 630px cells, and the font drops to what
+  a 630px screen would get.
 - When the connection drops, the **tab name resets to its default**: if you typed
   `exit`, the tmux session is gone and `-A` will create a fresh one on reconnect, so the
   label would be describing something that no longer exists.

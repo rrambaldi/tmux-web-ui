@@ -154,6 +154,26 @@ generico: sono tutte cose nate da un fastidio concreto.
   non aspetta la rete e funziona anche se il server non risponde.
 - **Trascinamento** dei tab per riordinarli. Riordinare sposta il `<li>`, non ricrea
   l'iframe: la sessione e lo scrollback non si toccano.
+- **Griglia**: il bottone `⊞ Griglia` in testata (o `Ctrl+Alt+G`) mostra **2, 4 o 6
+  terminali insieme** e cicla fra i formati che lo schermo regge — 2 affiancati, 4 in
+  2×2, 6 in 3×2. Compare solo dove c'e' spazio davvero (2 da 1200px, 4 da 1500×800, 6
+  da 1900×800): sotto i ~600px per cella un terminale non tiene 80 colonne a un font
+  leggibile, e sei finestrelle illeggibili valgono meno di una sola che si legge; su un
+  telefono il bottone non c'e' proprio. La griglia e' un **insieme** di terminali, non
+  un'assegnazione cella per cella: l'ordine in cui compaiono e' quello dei tab, percio'
+  le celle si spostano trascinando i tab come sempre, senza imparare un secondo modo di
+  riordinare. Da qui una regola sola, valida per il click su un tab, per `Alt+0–9` e per
+  `Shift+←/→`: **se quel terminale e' gia' a schermo la sua cella diventa quella attiva,
+  se non c'e' prende il posto della cella attiva**. La cella attiva ha la cornice verde
+  ed e' quella che riceve i tasti, `Congela`, `Storia` e la barra dei tasti; si sceglie
+  anche cliccando dentro il terminale. Lo stesso terminale non puo' stare in due celle,
+  e non e' una scelta di gusto: sarebbero due client sulla stessa sessione tmux, e tmux
+  dimensiona la finestra sul client piu' piccolo. Formato e insieme stanno nel profilo,
+  quindi si ritrovano cambiando browser; se lo schermo non regge il formato scelto si
+  stringe al piu' grande che ci sta **senza dimenticare la preferenza**, cosi' il
+  telefono non cancella la griglia del portatile. Le celle non spostano nessun iframe
+  nel DOM — lo ricaricherebbe, perdendo lo scrollback — si accendono con `display` e si
+  mettono in fila con `order`.
 - `Ctrl+Alt+C` (o il bottone **Congela**) ferma l'output del pannello e riversa la
   schermata in un `<pre>`: da li' selezione col mouse e `Ctrl+C` funzionano sempre.
   Serve perche' ttyd copia da solo a ogni cambio di selezione con
@@ -190,7 +210,9 @@ generico: sono tutte cose nate da un fastidio concreto.
   quello di ttyd), perche' e' il font a decidere quante colonne ci stanno: su un telefono
   da 390px si passa da una cinquantina a una sessantina, e in `htop` o in un `diff` si
   vede. I limiti stanno in un solo posto, `SCHERMI` nel JS: il CSS non ha media query
-  sue, reagisce alle classi che il JS mette sul `body`.
+  sue, reagisce alle classi che il JS mette sul `body`. In griglia la larghezza che conta
+  non e' quella della finestra ma quella della **cella**: un 1920 diviso in tre da' celle
+  da 630, e li' il font e' quello che si userebbe su uno schermo da 630.
 - Quando la connessione cade, il **nome del tab torna al default**: se hai fatto `exit`
   la sessione tmux e' morta e al riaggancio `-A` ne crea una nuova, quindi l'etichetta
   descriverebbe qualcosa che non esiste piu'.
