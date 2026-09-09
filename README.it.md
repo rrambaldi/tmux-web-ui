@@ -150,12 +150,14 @@ generico: sono tutte cose nate da un fastidio concreto.
   per quel browser, non per il server.
 - **Trascinamento** dei tab per riordinarli. Riordinare sposta il `<li>`, non ricrea
   l'iframe: la sessione e lo scrollback non si toccano.
-- `Ctrl+Alt+C` **congela** il pannello e riversa la schermata in un `<pre>`: da li'
-  selezione e `Ctrl+C` funzionano sempre. Serve perche' ttyd copia da solo a ogni
-  cambio di selezione con `document.execCommand('copy')`, che il browser blocca in
-  silenzio quando la selezione non nasce da un gesto utente breve — il famoso
-  "a volte il copia-incolla non va". `Ctrl+Ins` copia la selezione di xterm senza
-  congelare.
+- `Ctrl+Alt+C` (o il bottone **Congela**) ferma l'output del pannello e riversa la
+  schermata in un `<pre>`: da li' selezione col mouse e `Ctrl+C` funzionano sempre.
+  Serve perche' ttyd copia da solo a ogni cambio di selezione con
+  `document.execCommand('copy')`, che il browser blocca in silenzio quando la
+  selezione non nasce da un gesto utente breve — il famoso "a volte il copia-incolla
+  non va". Congelare **non seleziona niente**: cosa copiare lo scegli tu. Se davvero
+  serve tutta la schermata c'e' il bottone *Copia tutto*, e `Ctrl+Ins` copia la
+  selezione di xterm senza nemmeno congelare.
 - Quando la connessione cade, il **nome del tab torna al default**: se hai fatto `exit`
   la sessione tmux e' morta e al riaggancio `-A` ne crea una nuova, quindi l'etichetta
   descriverebbe qualcosa che non esiste piu'.

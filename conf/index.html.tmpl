@@ -185,7 +185,7 @@
     var bottoneGela = document.createElement('button');
     bottoneGela.type = 'button';
     bottoneGela.className = 'bottone-gela';
-    bottoneGela.textContent = '❄ Congela e copia';
+    bottoneGela.textContent = '❄ Congela';
     bottoneGela.title = 'Blocca l\'input e mostra il testo selezionabile (Ctrl+Alt+C)';
     var hint = document.createElement('span');
     hint.className = 'hint';
@@ -290,13 +290,18 @@
     // viene mostrato in un <pre>: essendo testo HTML normale, selezione e
     // copia funzionano sempre, senza dipendere dalla selezione interna di
     // xterm.js ne' dall'auto-copia di ttyd.
+    // Il congelamento NON seleziona niente: serve a fermare l'output e a
+    // rendere il testo selezionabile col mouse, la scelta di cosa copiare e'
+    // di chi guarda. Una selezione automatica di tutta la schermata va
+    // disfatta prima di poter prendere le tre righe che interessano, e nel
+    // frattempo un Ctrl+C distratto copia mille caratteri. [RR]
     function congela() {
       if (gelo || inModifica) return;
       var pane = pannelloAttivo();
       var term = termDi(pane);
       if (!term) {
         bottoneGela.textContent = '❄ terminale non pronto';
-        setTimeout(function () { bottoneGela.textContent = '❄ Congela e copia'; }, 1500);
+        setTimeout(function () { bottoneGela.textContent = '❄ Congela'; }, 1500);
         return;
       }
 
@@ -349,12 +354,10 @@
 
       gelo = { pane: pane, term: term, overlay: overlay, stdinPrima: stdinPrima };
 
-      // selezione già pronta: Ctrl+C copia senza altri passaggi
-      selezionaTutto(pre);
-
+      // Riscrivere il testo butta via la selezione in corso: e' inevitabile,
+      // ma non se ne fa una nuova al posto di quella dell'utente.
       chk.addEventListener('change', function () {
         pre.textContent = schermata(term, chk.checked);
-        selezionaTutto(pre);
       });
       bCopia.addEventListener('click', function () {
         copiaTesto(pre.textContent, function (ok) {
@@ -367,22 +370,16 @@
       bottoneGela.textContent = '❄ Riprendi';
     }
 
-    function selezionaTutto(el) {
-      var r = document.createRange();
-      r.selectNodeContents(el);
-      var s = window.getSelection();
-      s.removeAllRanges();
-      s.addRange(r);
-    }
-
     function scongela() {
       if (!gelo) return;
       var g = gelo;
       gelo = null;
       try { g.term.options.disableStdin = g.stdinPrima; } catch (err) {}
       if (g.overlay.parentNode) g.overlay.parentNode.removeChild(g.overlay);
+      // Il <pre> non c'e' piu': la selezione che lo puntava va chiusa a mano,
+      // o resta un range appeso a un nodo staccato dal documento.
       window.getSelection().removeAllRanges();
-      bottoneGela.textContent = '❄ Congela e copia';
+      bottoneGela.textContent = '❄ Congela';
       dagliIlFuoco(g.pane);
     }
 
@@ -570,7 +567,7 @@
           e.preventDefault(); e.stopPropagation();
           copiaTesto(sel, function (ok) {
             bottoneGela.textContent = ok ? '✓ copiato' : '✗ non riesco';
-            setTimeout(function () { bottoneGela.textContent = '❄ Congela e copia'; }, 1200);
+            setTimeout(function () { bottoneGela.textContent = '❄ Congela'; }, 1200);
           });
         }
         return;

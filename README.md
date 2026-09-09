@@ -221,11 +221,14 @@ generic frontend — every feature here exists because something was annoying.
   browser, not to the server.
 - **Drag** tabs to reorder. Reordering moves the `<li>`, it does not recreate the
   iframe, so the session and its scrollback are untouched.
-- `Ctrl+Alt+C` **freezes** the pane and dumps the visible screen into a `<pre>`, where
-  selection and `Ctrl+C` always work. This exists because ttyd copies on every
-  selection change via `document.execCommand('copy')`, which browsers silently refuse
-  when the selection did not come from a short user gesture — the familiar "sometimes
-  copy just doesn't work". `Ctrl+Ins` copies xterm's own selection without freezing.
+- `Ctrl+Alt+C` (or the **Congela** button) stops the pane's output and dumps the
+  visible screen into a `<pre>`, where mouse selection and `Ctrl+C` always work. This
+  exists because ttyd copies on every selection change via
+  `document.execCommand('copy')`, which browsers silently refuse when the selection
+  did not come from a short user gesture — the familiar "sometimes copy just doesn't
+  work". Freezing selects **nothing**: what to copy is your call. There is a *Copia
+  tutto* button if you really do want the whole screen, and `Ctrl+Ins` copies xterm's
+  own selection without freezing at all.
 - When the connection drops, the **tab name resets to its default**: if you typed
   `exit`, the tmux session is gone and `-A` will create a fresh one on reconnect, so the
   label would be describing something that no longer exists.
