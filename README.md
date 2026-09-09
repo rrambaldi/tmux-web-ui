@@ -219,6 +219,14 @@ generic frontend — every feature here exists because something was annoying.
 
 - `Shift+←/→` moves through tabs in **visual order**; `Alt+0–9` jumps to a terminal's
   **id**, which never changes even after you reorder them.
+- `Ctrl+H` (or the **`? Aiuto`** button) opens the **list of shortcuts**: keys, mouse
+  gestures and what every header button does. It used to be one line of text in the
+  header, which disappeared below 1100px — readable only where there was room to not
+  need it. `Esc`, the button, or a click outside the card closes it; while it is open
+  keystrokes stay there instead of reaching the terminal behind. **Note**: in the
+  terminal `Ctrl+H` is `^H`, i.e. backspace for readline and for `vi` in insert mode —
+  it is the one shortcut on this page that does not go through `Ctrl+Alt`, and swapping
+  it is a one-line change.
 - **Double-click** a tab to rename it. With profiles on (`PROFILI`), names and order
   follow **the certificate's identity** rather than the browser: you get them back in a
   different browser, or in a private window. `localStorage` stays as a cache, so the
@@ -267,7 +275,8 @@ generic frontend — every feature here exists because something was annoying.
   are looking while pressing arrows. The state is **not** a tally of our own clicks: it
   is read from what tmux draws, so the indicator stays right even when you enter or
   leave with a real keyboard.
-- **`A−` / `A+`** change the terminal's font size. The choice beats the automatic sizing
+- **`A›a` / `a›A`** change the terminal's font size: the direction is drawn by the size
+  of the two letters themselves, so there is nothing to translate. The choice beats the automatic sizing
   and is kept in `localStorage`; stepping back onto exactly the value the automatic
   sizing would have picked drops the choice, so adapting to the screen resumes without
   needing a third "auto" button. It lives in `localStorage` and **not** in the

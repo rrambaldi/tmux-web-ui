@@ -52,13 +52,17 @@
     .tab-pane { height: 100%; position: relative; }   /* riferimento per l'overlay di congelamento */
     iframe { width: 100%; height: 100%; border: none; display: block; background: #000; }
     .barra-dx { margin-left: auto; display: flex; align-items: center; gap: .6rem; padding: 0 .6rem; }
-    .hint { font-size: .75rem; color: #666; white-space: nowrap; }
-    @media (max-width: 1100px) { .hint { display: none; } }
     .bottone-gela {
       background: #2a2a2a; color: #ccc; border: 1px solid #444; border-radius: 3px;
       font-size: .78rem; padding: .15rem .5rem; cursor: pointer; white-space: nowrap;
     }
     .bottone-gela:hover { background: #333; color: #fff; }
+    /* 'A-' e 'A+' dicevano quanto un segno di spunta: il verso adesso lo
+       disegna la dimensione stessa delle due lettere, A>a rimpicciolisce e
+       a>A ingrandisce. Niente da tradurre e niente da ricordare. [RR] */
+    .lettera-g { font-size: 1.1em; }
+    .lettera-p { font-size: .72em; }
+    .verso { color: #777; font-size: .8em; margin: 0 .1em; }
     /* etichetta in modifica: si vede che e' un campo, non un'etichetta.
        user-select va riattivato, il .nav-link lo spegne per il trascinamento. */
     .etichetta[contenteditable="true"] {
@@ -135,6 +139,50 @@
     body.storia.mostra-tastiera .tastiera {
       border-top: 1px solid var(--acc); background: #14231e;
     }
+
+    /* --- finestra dell'aiuto ------------------------------------------------
+       Le scorciatoie stavano scritte in un rigo di testata largo mezzo schermo,
+       che spariva sotto i 1100px -- cioe' proprio dove non c'e' posto per
+       ricordarsele. Adesso stanno qui, e la testata torna ai soli bottoni. */
+    .aiuto {
+      position: fixed; inset: 0; z-index: 50; padding: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,.62);
+    }
+    .aiuto-carta {
+      background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 6px;
+      width: 100%; max-width: 44rem; max-height: 86vh; overflow: auto;
+      box-shadow: 0 12px 44px rgba(0,0,0,.6);
+    }
+    /* la testata resta in vista mentre si scorre: la via d'uscita non deve
+       finire fuori schermo */
+    .aiuto-testata {
+      position: sticky; top: 0; z-index: 1;
+      display: flex; align-items: center; gap: .6rem;
+      padding: .55rem .9rem; background: #1a1a1a; border-bottom: 1px solid #333;
+    }
+    .aiuto-testata strong { color: var(--acc); font-size: .95rem; flex: 1 1 auto; }
+    .aiuto-corpo { padding: .2rem .9rem 1rem; }
+    .aiuto h3 {
+      margin: 1rem 0 .4rem; font-size: .72rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .09em; color: #7d7d7d;
+    }
+    .aiuto dl { display: grid; grid-template-columns: max-content 1fr; gap: .35rem .9rem; margin: 0; }
+    .aiuto dt { white-space: nowrap; }
+    .aiuto dd { margin: 0; align-self: center; color: #b8b8b8; font-size: .84rem; }
+    .aiuto kbd {
+      background: #000; color: #e8e8e8; border: 1px solid #454545; border-bottom-width: 2px;
+      border-radius: 3px; padding: .05rem .35rem; font-size: .78rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    .aiuto .gesto { color: #9a9a9a; font-size: .8rem; font-style: italic; }
+    .aiuto .sep { color: #666; margin: 0 .2em; }
+    .aiuto p { margin: .8rem 0 0; color: #8f8f8f; font-size: .8rem; }
+    /* Su un telefono due colonne non ci stanno: il tasto va sopra la
+       descrizione. La misura la decide la classe che il JS mette sul body,
+       non una media query di qui. */
+    body.schermo-piccolo .aiuto dl { grid-template-columns: 1fr; gap: .1rem; }
+    body.schermo-piccolo .aiuto dd { margin-bottom: .45rem; }
 
     /* --- griglia: piu' terminali insieme ------------------------------------
        Le celle NON spostano i pannelli nel DOM: si accendono con display e si
@@ -319,14 +367,30 @@
     // Dimensione dei caratteri del terminale, a mano. Sta accanto agli altri
     // per lo stesso motivo: serve dove lo schermo e' piccolo, ma va raggiunta
     // anche da un portatile.
+    // Il verso lo dicono le lettere: A>a rimpicciolisce, a>A ingrandisce.
+    // Il nome per chi non vede il bottone lo mette etichetteFont, insieme al
+    // titolo, perche' li' c'e' anche la misura di adesso.
+    function lettere(giu) {
+      var f = document.createDocumentFragment();
+      [[giu ? 'A' : 'a', giu ? 'lettera-g' : 'lettera-p'],
+       ['›', 'verso'],
+       [giu ? 'a' : 'A', giu ? 'lettera-p' : 'lettera-g']].forEach(function (x) {
+        var s = document.createElement('span');
+        s.className = x[1];
+        s.textContent = x[0];
+        f.appendChild(s);
+      });
+      return f;
+    }
+
     var bottoneGiu = document.createElement('button');
     bottoneGiu.type = 'button';
     bottoneGiu.className = 'bottone-gela';
-    bottoneGiu.textContent = 'A−';
+    bottoneGiu.appendChild(lettere(true));
     var bottoneSu = document.createElement('button');
     bottoneSu.type = 'button';
     bottoneSu.className = 'bottone-gela';
-    bottoneSu.textContent = 'A+';
+    bottoneSu.appendChild(lettere(false));
     // Piu' terminali insieme, dove c'e' spazio. Un bottone solo che cicla
     // 1 -> 2 -> 4 -> 6 fra i formati che lo schermo regge: tre bottoni in piu'
     // su una barra che ne ha gia' cinque si notano piu' della funzione che
@@ -342,17 +406,21 @@
     bottoneGela.className = 'bottone-gela';
     bottoneGela.textContent = '❄ Congela';
     bottoneGela.title = 'Blocca l\'input e mostra il testo selezionabile (Ctrl+Alt+C)';
-    var hint = document.createElement('span');
-    hint.className = 'hint';
-    hint.textContent = 'Shift+←/→ cambia · Alt+0–9 salta · doppio click rinomina · trascina riordina';
-    var HINT_NORMALE = hint.textContent;
-    barraDx.appendChild(hint);
+    // Le scorciatoie stavano in un rigo di testo qui in testata: lungo, e
+    // nascosto proprio sugli schermi stretti dove servirebbe. Ora stanno nella
+    // finestra dell'aiuto, che si apre da questo bottone o con Ctrl+H.
+    var bottoneAiuto = document.createElement('button');
+    bottoneAiuto.type = 'button';
+    bottoneAiuto.className = 'bottone-gela';
+    bottoneAiuto.textContent = '? Aiuto';
+
     barraDx.appendChild(bottoneGiu);
     barraDx.appendChild(bottoneSu);
     barraDx.appendChild(bottoneGriglia);
     barraDx.appendChild(bottoneTastiera);
     barraDx.appendChild(bottoneStoria);
     barraDx.appendChild(bottoneGela);
+    barraDx.appendChild(bottoneAiuto);
     tabs.appendChild(barraDx);
 
     // --- navigazione ---------------------------------------------------------
@@ -964,6 +1032,10 @@
       var come = fontAMano() ? 'scelta' : 'automatica';
       bottoneGiu.title = 'Caratteri piu' + '’ piccoli (adesso ' + n + 'px, ' + come + ')';
       bottoneSu.title  = 'Caratteri piu' + '’ grandi (adesso ' + n + 'px, ' + come + ')';
+      // Il bottone e' due lettere: senza questo, a chi legge lo schermo
+      // arriverebbe "A a" e nient'altro.
+      bottoneGiu.setAttribute('aria-label', bottoneGiu.title);
+      bottoneSu.setAttribute('aria-label', bottoneSu.title);
       bottoneGiu.disabled = n <= FONT_MIN;
       bottoneSu.disabled  = n >= FONT_MAX;
     }
@@ -1158,11 +1230,6 @@
       bottoneGriglia.setAttribute('aria-pressed', n > 1 ? 'true' : 'false');
       bottoneGriglia.title = 'Terminali insieme: ' + [1].concat(scelte).join(' → ') +
         ' → … (Ctrl+Alt+G)';
-      // In griglia i tab e i click vogliono dire una cosa in piu', e il posto
-      // dove dirlo e' quello dove gia' si spiegano le scorciatoie.
-      hint.textContent = n > 1
-        ? 'clic su un tab: entra nella cella attiva · clic in un terminale: sceglie la cella'
-        : HINT_NORMALE;
     }
 
     bottoneGriglia.addEventListener('click', commutaGriglia);
@@ -1389,9 +1456,160 @@
       // della sua finestra, che l'iframe emette da se'.
     });
 
+    // --- finestra dell'aiuto -------------------------------------------------
+    // L'elenco delle scorciatoie stava in un rigo di testata che spariva sotto
+    // i 1100px: era leggibile solo dove c'era spazio per fare a meno di
+    // leggerlo. Qui invece ci sta tutto, anche i gesti col mouse e i bottoni,
+    // e su un telefono si legge come sul portatile. [RR]
+    var AIUTO = [
+      { titolo: 'Terminali', voci: [
+        { tasti: ['Shift+←', 'Shift+→'], che: 'terminale precedente e successivo, nell\'ordine dei tab' },
+        { tasti: ['Alt+0', 'Alt+9'], che: 'salta al terminale con quell\'id, ovunque sia finito' },
+        { gesto: 'doppio click sul tab', che: 'rinomina: Invio conferma, Esc annulla, vuoto rimette il nome di serie' },
+        { gesto: 'trascina il tab', che: 'cambia l\'ordine dei terminali' }
+      ] },
+      { titolo: 'Piu\' terminali insieme', voci: [
+        { tasti: ['Ctrl+Alt+G'], che: 'uno solo → 2 → 4 → 6, fra i formati che lo schermo regge' },
+        { gesto: 'clic su un tab', che: 'in griglia: se quel terminale non e\' a schermo, entra nella cella attiva; se c\'e\' gia\', la sua cella diventa quella attiva' },
+        { gesto: 'clic dentro un terminale', che: 'sceglie la cella attiva, quella con la cornice verde: e\' lei che riceve tasti, congelamento e storia' }
+      ] },
+      { titolo: 'Copiare', voci: [
+        { tasti: ['Ctrl+Alt+C'], che: 'congela il terminale: l\'output si ferma e il testo si seleziona col mouse' },
+        { tasti: ['Ctrl+Ins'], che: 'copia la selezione fatta dentro il terminale, senza congelare' },
+        { tasti: ['Esc'], che: 'a terminale congelato, riprende' }
+      ] },
+      { titolo: 'Bottoni in testata', voci: [
+        { gesto: 'A›a  a›A', che: 'caratteri piu\' piccoli e piu\' grandi; la scelta batte l\'automatico e resta su questo browser' },
+        { gesto: '⊞ Griglia', che: 'quanti terminali a schermo; compare solo dove c\'e\' spazio' },
+        { gesto: '⌨ Tasti', che: 'la barra con Esc, Tab, frecce e PagSu/PagGiu, per le tastiere che non li hanno' },
+        { gesto: '⇱ Storia', che: 'entra e esce dalla copy-mode di tmux (Ctrl-B [): li\' le frecce scorrono lo scrollback' },
+        { gesto: '❄ Congela', che: 'come Ctrl+Alt+C' }
+      ] },
+      { titolo: 'Questa finestra', voci: [
+        { tasti: ['Ctrl+H'], che: 'apre e chiude questo elenco' },
+        { tasti: ['Esc'], che: 'chiude' }
+      ] }
+    ];
+
+    var aiuto = null;
+
+    function apriAiuto() {
+      if (aiuto || inModifica) return;
+
+      var fondo = document.createElement('div');
+      fondo.className = 'aiuto';
+
+      var carta = document.createElement('div');
+      carta.className = 'aiuto-carta';
+
+      var testata = document.createElement('div');
+      testata.className = 'aiuto-testata';
+      var titolo = document.createElement('strong');
+      titolo.textContent = 'Scorciatoie';
+      var bChiudi = document.createElement('button');
+      bChiudi.type = 'button';
+      bChiudi.className = 'bottone-gela';
+      bChiudi.textContent = 'Chiudi (Esc)';
+      testata.appendChild(titolo);
+      testata.appendChild(bChiudi);
+
+      var corpo = document.createElement('div');
+      corpo.className = 'aiuto-corpo';
+      AIUTO.forEach(function (sezione) {
+        var h = document.createElement('h3');
+        h.textContent = sezione.titolo;
+        corpo.appendChild(h);
+
+        var dl = document.createElement('dl');
+        sezione.voci.forEach(function (v) {
+          var dt = document.createElement('dt');
+          if (v.tasti) {
+            v.tasti.forEach(function (t, i) {
+              if (i) {
+                var sep = document.createElement('span');
+                sep.className = 'sep';
+                sep.textContent = '…';
+                dt.appendChild(sep);
+              }
+              var k = document.createElement('kbd');
+              k.textContent = t;
+              dt.appendChild(k);
+            });
+          } else {
+            var g = document.createElement('span');
+            g.className = 'gesto';
+            g.textContent = v.gesto;
+            dt.appendChild(g);
+          }
+          var dd = document.createElement('dd');
+          dd.textContent = v.che;
+          dl.appendChild(dt);
+          dl.appendChild(dd);
+        });
+        corpo.appendChild(dl);
+      });
+
+      var coda = document.createElement('p');
+      coda.textContent = 'Nomi e ordine dei tab, e la griglia, seguono l\'identita\' del ' +
+        'certificato: li ritrovi cambiando browser.';
+      corpo.appendChild(coda);
+
+      carta.appendChild(testata);
+      carta.appendChild(corpo);
+      fondo.appendChild(carta);
+      document.body.appendChild(fondo);
+
+      bChiudi.addEventListener('click', chiudiAiuto);
+      // Solo il fondo, non la carta: un click sul testo non deve chiudere
+      // quello che si sta leggendo.
+      fondo.addEventListener('pointerdown', function (e) { if (e.target === fondo) chiudiAiuto(); });
+
+      aiuto = fondo;
+      bottoneAiuto.classList.add('acceso');
+      bottoneAiuto.setAttribute('aria-pressed', 'true');
+      // Il fuoco esce dal terminale: cosi' Esc arriva qui e non al programma
+      // che gira nel pannello.
+      try { bChiudi.focus(); } catch (err) {}
+    }
+
+    function chiudiAiuto() {
+      if (!aiuto) return;
+      if (aiuto.parentNode) aiuto.parentNode.removeChild(aiuto);
+      aiuto = null;
+      bottoneAiuto.classList.remove('acceso');
+      bottoneAiuto.setAttribute('aria-pressed', 'false');
+      // il fuoco torna dove si stava scrivendo, o si scriverebbe nel vuoto
+      if (!gelo && !inModifica) dagliIlFuoco(pannelloAttivo());
+    }
+
+    function commutaAiuto() { aiuto ? chiudiAiuto() : apriAiuto(); }
+
+    bottoneAiuto.title = 'Elenco delle scorciatoie (Ctrl+H)';
+    bottoneAiuto.setAttribute('aria-pressed', 'false');
+    bottoneAiuto.addEventListener('click', commutaAiuto);
+
     // --- tastiera ------------------------------------------------------------
     function onTasto(e) {
       if (inModifica) return;
+
+      // Ctrl+H apre e chiude l'elenco delle scorciatoie.
+      //
+      // Va detto che nel terminale Ctrl+H e' ^H, cioe' backspace per readline
+      // e per vi in inserimento: intercettandolo qui, chi cancella cosi' non
+      // cancella piu'. E' la scorciatoia chiesta, ed e' l'unica di questa
+      // pagina che non passa da Ctrl+Alt: se dovesse dare fastidio, cambiarla
+      // e' una riga sola (per esempio F1, o Ctrl+Alt+H come le altre). [RR]
+      if (e.ctrlKey && !e.altKey && !e.metaKey && (e.key === 'h' || e.key === 'H')) {
+        e.preventDefault(); e.stopPropagation();
+        commutaAiuto();
+        return;
+      }
+      // Con l'elenco aperto i tasti restano qui: Esc chiude, il resto non
+      // finisce nel terminale che sta dietro.
+      if (aiuto) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); chiudiAiuto(); }
+        return;
+      }
 
       // Ctrl+Alt+C congela / riprende. Con il pannello congelato, Esc riprende.
       if (e.ctrlKey && e.altKey && !e.metaKey && (e.key === 'c' || e.key === 'C')) {

@@ -148,6 +148,14 @@ generico: sono tutte cose nate da un fastidio concreto.
 
 - `Shift+←/→` cambia tab seguendo l'**ordine visivo**; `Alt+0–9` salta all'**id** del
   terminale, che non cambia mai anche se riordini.
+- `Ctrl+H` (o il bottone **`? Aiuto`**) apre l'**elenco delle scorciatoie**: tasti, gesti
+  col mouse e cosa fa ogni bottone della testata. Prima era un rigo di testo in testata,
+  che spariva sotto i 1100px — cioe' era leggibile solo dove c'era spazio per fare a meno
+  di leggerlo. Si chiude con `Esc`, col bottone o cliccando fuori dalla carta; finche' e'
+  aperta i tasti restano li' e non finiscono nel terminale dietro. **Nota**: nel terminale
+  `Ctrl+H` e' `^H`, cioe' backspace per readline e per `vi` in inserimento — e' l'unica
+  scorciatoia della pagina che non passa da `Ctrl+Alt`, e se da fastidio cambiarla e' una
+  riga sola.
 - **Doppio click** sul tab per rinominarlo. Con i profili accesi (`PROFILI`) i nomi e
   l'ordine seguono **l'identita' del certificato**, non il browser: li ritrovi cambiando
   browser o riaprendo in incognito. `localStorage` resta come cache, quindi la pagina
@@ -196,7 +204,8 @@ generico: sono tutte cose nate da un fastidio concreto.
   compare la spia `⇱ storia · le frecce scorrono`, che e' dove guardi mentre premi le
   frecce. Lo stato **non** e' il conto dei nostri click: si legge da cio' che tmux
   disegna, quindi la spia e' giusta anche se entri o esci con la tastiera vera.
-- **`A−` / `A+`** cambiano la dimensione dei caratteri del terminale. La scelta batte
+- **`A›a` / `a›A`** cambiano la dimensione dei caratteri del terminale: il verso lo
+  disegna la dimensione stessa delle due lettere, che non c'e' bisogno di tradurre. La scelta batte
   l'adattamento automatico e resta in `localStorage`; tornando esattamente sul valore
   che l'automatico avrebbe scelto la scelta si butta, e si ricomincia ad adattarsi allo
   schermo senza bisogno di un terzo bottone "auto". Sta in `localStorage` e **non** nel
