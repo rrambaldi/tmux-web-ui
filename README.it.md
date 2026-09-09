@@ -158,6 +158,13 @@ generico: sono tutte cose nate da un fastidio concreto.
   non va". Congelare **non seleziona niente**: cosa copiare lo scegli tu. Se davvero
   serve tutta la schermata c'e' il bottone *Copia tutto*, e `Ctrl+Ins` copia la
   selezione di xterm senza nemmeno congelare.
+- Una **barra di tasti** in fondo alla pagina per `Esc`, `Tab`, le quattro frecce e
+  `PagSu`/`PagGiu`: la tastiera di sistema di un telefono non li ha, e senza di quelli
+  in `tmux` o in `vi` non ci si muove e non si completa un nome di file. Tenendo premuto
+  si ripetono, come farebbe un tasto vero. Compare da se' dove il puntatore e' un dito
+  (`pointer: coarse`) e si accende o si spegne col bottone `⌨`, con la scelta ricordata
+  in `localStorage`. Col pannello congelato i tasti si spengono: passano da
+  `term.input()`, che rispetta `disableStdin` come la tastiera vera.
 - Quando la connessione cade, il **nome del tab torna al default**: se hai fatto `exit`
   la sessione tmux e' morta e al riaggancio `-A` ne crea una nuova, quindi l'etichetta
   descriverebbe qualcosa che non esiste piu'.
@@ -252,6 +259,13 @@ repo, ma un server che le ha gia' si tiene le sue icone anche dopo un rilancio.
 una sessione lasciata ferma verrebbe chiusa da nginx e il terminale andrebbe in
 reconnect. Sull'originale non si notava perche' la status line di tmux si aggiorna ogni
 15s e tiene il canale caldo — cioe' funzionava per un effetto collaterale.
+
+**Le frecce hanno due forme.** Col modo cursore "applicazione" attivo (DECCKM, lo
+accendono `vi` e in genere le interfacce a tutto schermo) una freccia e' `ESC O A`, negli
+altri casi `ESC [ A`. La barra dei tasti guarda `term.modes.applicationCursorKeysMode`
+prima di decidere: mandare sempre la seconda forma funziona nella shell e si rompe
+altrove. `Esc` e' `ESC`, `Tab` e' `HT` (0x09), `PagSu`/`PagGiu` sono `ESC [ 5~` e
+`ESC [ 6~` — sono le stesse sequenze che xterm.js emette per quei tasti.
 
 **Copia-incolla:** la soluzione vera sarebbe una versione di ttyd che includa
 `@xterm/addon-clipboard`, cioe' OSC 52, piu' `tmux set -g set-clipboard on`. Nel

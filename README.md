@@ -229,6 +229,13 @@ generic frontend — every feature here exists because something was annoying.
   work". Freezing selects **nothing**: what to copy is your call. There is a *Copia
   tutto* button if you really do want the whole screen, and `Ctrl+Ins` copies xterm's
   own selection without freezing at all.
+- A **key bar** at the bottom of the page for `Esc`, `Tab`, the four arrows and
+  `PgUp`/`PgDn`. A phone's on-screen keyboard has none of those, and without them you
+  cannot move around in `tmux` or `vi`, or complete a filename. Hold a button and it
+  repeats, the way a real key does. It appears on its own where the pointer is a finger
+  (`pointer: coarse`) and toggles with the `⌨` button, the choice remembered in
+  `localStorage`. While a pane is frozen the keys go dead: they travel through
+  `term.input()`, which honours `disableStdin` exactly as the real keyboard does.
 - When the connection drops, the **tab name resets to its default**: if you typed
   `exit`, the tmux session is gone and `-A` will create a fresh one on reconnect, so the
   label would be describing something that no longer exists.
@@ -275,6 +282,13 @@ a server that already has them keeps its icons across reinstalls.
 nginx closes an idle session and the terminal drops into reconnect. The original host
 never noticed because tmux's status line refreshes every 15s and keeps the channel
 warm — that is, it worked by accident.
+
+**Arrow keys have two forms.** With application cursor mode on (DECCKM, which `vi` and
+full-screen interfaces set) an arrow is `ESC O A`; otherwise it is `ESC [ A`. The key bar
+checks `term.modes.applicationCursorKeysMode` before deciding — always sending the second
+form works in the shell and breaks elsewhere. `Esc` is `ESC`, `Tab` is `HT` (0x09),
+`PgUp`/`PgDn` are `ESC [ 5~` and `ESC [ 6~`: the same sequences xterm.js itself emits for
+those keys.
 
 **Clipboard.** The real fix would be a ttyd build that ships `@xterm/addon-clipboard`,
 i.e. OSC 52, plus `tmux set -g set-clipboard on`. In the **1.7.7** bundle from EPEL,

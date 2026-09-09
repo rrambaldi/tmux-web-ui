@@ -87,6 +87,30 @@
       font-size: 13px; line-height: 1.25; white-space: pre; color: #ddd;
       user-select: text; -webkit-user-select: text;
     }
+    /* --- barra dei tasti che un telefono non ha --- */
+    /* Tab, Esc, frecce e PagSu/PagGiu non stanno sulla tastiera di sistema di
+       un telefono: senza, in tmux o in vi non ci si muove e non si completa
+       un nome di file. Sul desktop la barra e' solo ingombro, percio' di
+       serie compare dove il puntatore e' grosso (un dito) e altrove la si
+       accende col bottone. L'altezza dei pannelli si adatta da se': e' il
+       motivo per cui il layout e' in flex e non a calc(). [RR] */
+    .tastiera { display: none; }
+    body.mostra-tastiera .tastiera {
+      flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: .3rem;
+      padding: .35rem .4rem; background: #1a1a1a; border-top: 1px solid #333;
+    }
+    /* Congelato, l'input e' bloccato: i tasti si spengono invece di sparire,
+       cosi' non sembra che si sia rotto qualcosa. */
+    body.gelo-attivo .tastiera { opacity: .3; pointer-events: none; }
+    .tasto {
+      flex: 1 1 auto; min-width: 2.7rem; min-height: 2.5rem;
+      background: #2b2b2b; color: #ddd; border: 1px solid #444; border-radius: 4px;
+      font-family: inherit; font-size: .95rem; line-height: 1;
+      cursor: pointer; user-select: none; -webkit-user-select: none;
+      touch-action: manipulation;   /* niente zoom sul doppio tap ravvicinato */
+    }
+    .tasto:active { background: var(--acc-fondo); color: var(--acc); border-color: var(--acc-bordo); }
+    .tasto:focus, .tasto:focus-visible { outline: none; }
   </style>
 </head>
 <body>
@@ -96,6 +120,9 @@
 
   <!-- Contenuto iFrame per ogni terminale -->
   <div class="tab-content" id="terminalTabsContent"></div>
+
+  <!-- Tasti speciali per chi arriva da un telefono: riempita da JS -->
+  <div class="tastiera" id="tastiera"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
@@ -182,6 +209,10 @@
 
     var barraDx = document.createElement('li');
     barraDx.className = 'barra-dx';
+    var bottoneTastiera = document.createElement('button');
+    bottoneTastiera.type = 'button';
+    bottoneTastiera.className = 'bottone-gela';
+    bottoneTastiera.textContent = '⌨';
     var bottoneGela = document.createElement('button');
     bottoneGela.type = 'button';
     bottoneGela.className = 'bottone-gela';
@@ -191,6 +222,7 @@
     hint.className = 'hint';
     hint.textContent = 'Shift+←/→ cambia · Alt+0–9 salta · doppio click rinomina · trascina riordina';
     barraDx.appendChild(hint);
+    barraDx.appendChild(bottoneTastiera);
     barraDx.appendChild(bottoneGela);
     tabs.appendChild(barraDx);
 
@@ -353,6 +385,7 @@
       pane.appendChild(overlay);
 
       gelo = { pane: pane, term: term, overlay: overlay, stdinPrima: stdinPrima };
+      document.body.classList.add('gelo-attivo');   // spegne la barra dei tasti
 
       // Riscrivere il testo butta via la selezione in corso: e' inevitabile,
       // ma non se ne fa una nuova al posto di quella dell'utente.
@@ -374,6 +407,7 @@
       if (!gelo) return;
       var g = gelo;
       gelo = null;
+      document.body.classList.remove('gelo-attivo');
       try { g.term.options.disableStdin = g.stdinPrima; } catch (err) {}
       if (g.overlay.parentNode) g.overlay.parentNode.removeChild(g.overlay);
       // Il <pre> non c'e' piu': la selezione che lo puntava va chiusa a mano,
@@ -541,6 +575,115 @@
         if (ta) ta.focus();
       } catch (err) { /* iframe non ancora pronto: ci pensa l'evento load */ }
     }
+
+    // --- tasti che un telefono non ha ---------------------------------------
+    // La tastiera di sistema di un telefono non ha Tab, Esc, frecce ne'
+    // PagSu/PagGiu: dentro tmux o vi si resta bloccati, e senza Tab non si
+    // completa un nome di file. Questi bottoni li mandano al terminale.
+    //
+    // Si scrive con term.input(), l'API con cui xterm.js inietta dati "come
+    // se li avesse digitati l'utente" (finisce in triggerDataEvent). Due
+    // proprieta' utili: non richiede che il fuoco sia nel terminale, e
+    // rispetta disableStdin, percio' col pannello congelato questi tasti non
+    // passano esattamente come non passa la tastiera vera. [RR]
+    var CHIAVE_TASTIERA = 'terminal-dashboard-tastiera';
+
+    // Le frecce hanno DUE forme. Col modo cursore "applicazione" attivo
+    // (DECCKM, lo accendono vi e in genere le interfacce a tutto schermo)
+    // sono ESC O <lettera>, altrimenti ESC [ <lettera>. Mandare sempre la
+    // seconda funziona nella shell e si rompe altrove, quindi si guarda in
+    // che modo si trova il terminale in quel momento.
+    var TASTI = [
+      { et: 'Esc',    seq: '\x1b' },
+      { et: 'Tab',    seq: '\t' },
+      { et: '←',      cur: 'D' },
+      { et: '↑',      cur: 'A' },
+      { et: '↓',      cur: 'B' },
+      { et: '→',      cur: 'C' },
+      { et: 'PagSu',  seq: '\x1b[5~' },
+      { et: 'PagGiu', seq: '\x1b[6~' }
+    ];
+
+    function sequenza(t, term) {
+      if (!t.cur) return t.seq;
+      var app = false;
+      try { app = !!(term && term.modes && term.modes.applicationCursorKeysMode); }
+      catch (err) { /* xterm senza .modes: si ripiega sulla forma normale */ }
+      return (app ? '\x1bO' : '\x1b[') + t.cur;
+    }
+
+    function mandaTasto(t) {
+      if (gelo || inModifica) return;
+      var term = termDi(pannelloAttivo());
+      if (!term) return;
+      try { term.input(sequenza(t, term)); } catch (err) {}
+    }
+
+    // Un tasto vero, tenuto premuto, si ripete: senza, per risalire dieci
+    // comandi nella storia servono dieci tap.
+    var attesaRip = null, rip = null;
+    function fermaRipetizione() {
+      if (attesaRip) { clearTimeout(attesaRip); attesaRip = null; }
+      if (rip) { clearInterval(rip); rip = null; }
+    }
+
+    var tastiera = document.getElementById('tastiera');
+    TASTI.forEach(function (t) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tasto';
+      b.textContent = t.et;
+      b.title = t.et;
+      // pointerdown con preventDefault, non click: sul telefono premere un
+      // bottone sposterebbe il fuoco fuori dal terminale e la tastiera di
+      // sistema si chiuderebbe a ogni tasto. Prevenendo il default il fuoco
+      // non si muove, e il tasto parte alla pressione invece che al rilascio.
+      b.addEventListener('pointerdown', function (e) {
+        e.preventDefault();
+        fermaRipetizione();
+        mandaTasto(t);
+        // la cattura tiene il pointerup su questo bottone anche se il dito
+        // scivola via: senza, la ripetizione non si fermerebbe piu'
+        try { b.setPointerCapture(e.pointerId); } catch (err) {}
+        attesaRip = setTimeout(function () {
+          attesaRip = null;
+          rip = setInterval(function () { mandaTasto(t); }, 60);
+        }, 400);
+      });
+      b.addEventListener('pointerup', fermaRipetizione);
+      b.addEventListener('pointercancel', fermaRipetizione);
+      tastiera.appendChild(b);
+    });
+
+    // Rete di sicurezza: se il pointerup si perde per strada (cambio di
+    // scheda, gesto di sistema, schermo che si spegne) la ripetizione va
+    // fermata comunque, o continua a mandare tasti a un terminale che nessuno
+    // sta guardando.
+    window.addEventListener('blur', fermaRipetizione);
+    document.addEventListener('visibilitychange', fermaRipetizione);
+
+    // Di serie la barra compare dove il puntatore e' un dito. Una scelta
+    // esplicita vince e viene ricordata: si salva 'si'/'no' e non un booleano
+    // perche' leggi() non distingue un false salvato da un valore assente.
+    function mostraTastiera(mostra) {
+      document.body.classList.toggle('mostra-tastiera', mostra);
+      bottoneTastiera.title = (mostra ? 'Nascondi' : 'Mostra') +
+        ' i tasti Tab, Esc, frecce, PagSu/PagGiu';
+      bottoneTastiera.setAttribute('aria-pressed', mostra ? 'true' : 'false');
+    }
+    var sceltaTastiera = leggi(CHIAVE_TASTIERA, '');
+    var conIlDito = false;
+    try { conIlDito = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); }
+    catch (err) {}
+    mostraTastiera(sceltaTastiera === 'si' || (sceltaTastiera !== 'no' && conIlDito));
+
+    bottoneTastiera.addEventListener('click', function () {
+      var mostra = !document.body.classList.contains('mostra-tastiera');
+      mostraTastiera(mostra);
+      scrivi(CHIAVE_TASTIERA, mostra ? 'si' : 'no');
+      // il terminale e' cambiato di altezza: ttyd rifa' il fit sul resize
+      // della sua finestra, che l'iframe emette da se'.
+    });
 
     // --- tastiera ------------------------------------------------------------
     function onTasto(e) {
