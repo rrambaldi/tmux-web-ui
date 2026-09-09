@@ -272,6 +272,10 @@
 
     var CHIAVE_NOMI   = 'terminal-dashboard-nomi';
     var CHIAVE_ORDINE = 'terminal-dashboard-ordine';
+    // Quando questo browser ha cambiato qualcosa l'ultima volta. Serve a
+    // decidere chi ha ragione fra la cache e il server: senza, il profilo che
+    // arriva dalla rete cancella quello che si e' appena fatto qui. [RR]
+    var CHIAVE_AGG    = 'terminal-dashboard-agg';
 
     var tabs = document.getElementById('terminalTabs');
     var panes = document.getElementById('terminalTabsContent');
@@ -293,13 +297,19 @@
       try { localStorage.setItem(chiave, JSON.stringify(valore)); }
       catch (err) { /* storage non disponibile: le preferenze valgono per questa sessione */ }
     }
+    // Da chiamare a ogni modifica VOLUTA (un nome, l'ordine, la griglia):
+    // e' la data che il caricamento dopo confronta con quella del server.
+    function tocca() { scrivi(CHIAVE_AGG, Date.now()); }
+
     function salvaNome(id, nome) {
       var n = leggi(CHIAVE_NOMI, {});
       if (nome) n[id] = nome; else delete n[id];
       scrivi(CHIAVE_NOMI, n);
+      tocca();
     }
     function salvaOrdine() {
       scrivi(CHIAVE_ORDINE, pulsanti().map(function (b) { return Number(b.dataset.id); }));
+      tocca();
     }
 
     // --- costruzione ---------------------------------------------------------
@@ -823,16 +833,46 @@
       function manda() {
         attesaPut = null;
         var corpo = JSON.stringify({
-          nomi: leggi(CHIAVE_NOMI, {}), ordine: ordineCorrente(), griglia: statoGriglia()
+          nomi: leggi(CHIAVE_NOMI, {}), ordine: ordineCorrente(), griglia: statoGriglia(),
+          agg: Number(leggi(CHIAVE_AGG, 0)) || 0
         });
-        fetch(urlProfilo, { method: 'PUT', body: corpo, cache: 'no-store' })
-          .catch(function () { /* offline: localStorage ha comunque il dato */ });
+        // keepalive: la PUT deve partire anche quando la manda mandaSubito()
+        // mentre la pagina se ne sta andando -- una fetch normale, li', il
+        // browser la annulla. Il corpo e' un paio di righe di JSON, ben
+        // dentro il tetto di 64k che keepalive impone. [RR]
+        fetch(urlProfilo, { method: 'PUT', body: corpo, cache: 'no-store', keepalive: true })
+          .catch(function () { /* offline: localStorage ha comunque il dato, e la data dice che e' piu' fresco */ });
       }
       if (subito) manda(); else attesaPut = setTimeout(manda, 800);
     }
 
+    // Un F5 dato SUBITO dopo aver rinominato non deve perdere niente: se c'e'
+    // una PUT in attesa la si manda adesso invece di aspettare gli 800ms che
+    // la pagina non vivra'. Anche chiudendo la scheda o passando ad un'altra
+    // applicazione sul telefono. [RR]
+    function mandaSubito() { if (attesaPut) sincronizza(true); }
+    document.addEventListener('visibilitychange', function () { if (document.hidden) mandaSubito(); });
+    window.addEventListener('pagehide', mandaSubito);
+
     function applicaProfilo(p) {
       if (!p || typeof p !== 'object') return;
+
+      // CHI HA RAGIONE. Il profilo dal server vinceva sempre, e cosi' bastava
+      // ricaricare entro gli 800ms del debounce -- o avere una PUT rifiutata,
+      // o essere senza rete -- per veder tornare i nomi di prima: la modifica
+      // era in localStorage, ma il caricamento dopo la sovrascriveva con la
+      // copia vecchia del server. Adesso ogni modifica locale lascia una data
+      // (CHIAVE_AGG) e la PUT la porta con se': se quella qui e' piu' recente
+      // di quella del server, e' la cache ad avere ragione e a salire, non il
+      // contrario.
+      //
+      // Sono orologi di macchine diverse, quindi non e' una verita' assoluta:
+      // fra telefono e portatile sfasati vince chi ha l'orologio avanti. Ma
+      // il caso che conta -- ho appena cambiato QUI e ricarico QUI -- e' lo
+      // stesso browser, e li' la data e' ordinata per forza. [RR]
+      var mia = Number(leggi(CHIAVE_AGG, 0)) || 0;
+      var sua = Number(p.agg) || 0;
+      if (mia > sua) { sincronizza(true); return; }
 
       if (p.nomi && typeof p.nomi === 'object') {
         scrivi(CHIAVE_NOMI, p.nomi);
@@ -874,6 +914,10 @@
       var eff = celleEffettive();
       applicaGriglia(eff > 1 ? ripulisci(idsGriglia, eff) : []);
       scrivi(CHIAVE_GRIGLIA, statoGriglia());
+
+      // Adesso questo browser ha esattamente cio' che ha il server: la data
+      // diventa la sua, non l'ora in cui e' arrivata la risposta.
+      scrivi(CHIAVE_AGG, sua);
     }
 
     function caricaProfilo() {
@@ -1209,6 +1253,7 @@
 
     function salvaGriglia() {
       scrivi(CHIAVE_GRIGLIA, statoGriglia());
+      tocca();
       sincronizza();
     }
 

@@ -390,8 +390,20 @@ Two consequences worth remembering:
 - **One certificate per device means one profile per device.** Two browsers importing the
   same `.p12` share their names; a phone and a laptop holding distinct certificates stay
   separate. That is the same separation you need in order to revoke a single device.
-- **Last writer wins.** With two browsers open there is no merge: whoever renames last
-  overwrites. For tab names that is an acceptable price.
+- **Last writer wins — not last loader.** With two browsers open there is no merge:
+  whoever renames last overwrites, and for tab names that is an acceptable price. But
+  "last" is decided by a timestamp, not by the order pages happen to load: every local
+  change stamps `localStorage`, and the `PUT` carries that stamp in an `agg` field. On
+  load, if the local stamp is newer than the profile's, **the cache wins** and is pushed
+  up; otherwise the profile wins. Without this, reloading within the 800ms debounce — or
+  a rejected `PUT`, or no network — was enough to get the old names back: the rename was
+  in `localStorage`, but the next load overwrote it with the server's stale copy. These
+  are clocks on different machines, so between a skewed phone and laptop the one running
+  ahead wins; but the case that matters — I changed it here and reload here — is the same
+  browser, where the stamps are necessarily ordered. On top of that a pending `PUT` is
+  flushed on `pagehide` and when the page goes to the background (with `keepalive`, or
+  the browser would cancel it), so the window in which something has not gone up yet
+  closes on its own nearly always.
 
 One thing deliberately *not* propagated: when the connection drops the label reverts to
 its default (see below), but that revert stays **local**. Were it to reach the server, a

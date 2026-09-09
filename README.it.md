@@ -287,8 +287,21 @@ Due conseguenze da tenere a mente:
   che importano lo stesso `.p12` condividono i nomi; telefono e portatile con
   certificati distinti restano separati. E' la stessa separazione che serve per
   revocare un dispositivo solo.
-- **Vince l'ultimo che scrive.** Con due browser aperti insieme non c'e' fusione: chi
-  rinomina per ultimo sovrascrive. Per dei nomi di tab e' un prezzo accettabile.
+- **Vince l'ultimo che scrive, non l'ultimo che carica.** Con due browser aperti insieme
+  non c'e' fusione: chi rinomina per ultimo sovrascrive, e per dei nomi di tab e' un
+  prezzo accettabile. Ma "ultimo" e' deciso da una data, non dall'ordine in cui le pagine
+  si aprono: ogni modifica locale lascia un timestamp in `localStorage` e la `PUT` se lo
+  porta dietro nel campo `agg`. Quando la pagina si carica, se la data locale e' piu'
+  recente di quella del profilo e' **la cache ad avere ragione**, e a salire; altrimenti
+  vince il profilo. Senza questo bastava ricaricare entro gli 800ms del debounce — o
+  avere una `PUT` rifiutata, o essere senza rete — per veder tornare i nomi di prima: la
+  rinomina era in `localStorage`, ma il caricamento successivo la sovrascriveva con la
+  copia vecchia del server. Sono orologi di macchine diverse, quindi fra telefono e
+  portatile sfasati vince chi ha l'orologio avanti; ma il caso che conta — ho cambiato
+  qui e ricarico qui — e' lo stesso browser, dove le date sono ordinate per forza.
+  In piu' la `PUT` in attesa parte subito su `pagehide` e quando la pagina passa in
+  secondo piano (con `keepalive`, o il browser l'annullerebbe), cosi' la finestra in cui
+  qualcosa puo' non essere ancora salito si chiude quasi sempre da se'.
 
 Una cosa che si sceglie di *non* propagare: quando la connessione cade, l'etichetta
 torna al default (vedi sotto), ma quel ritorno resta **locale**. Se salisse al server,
