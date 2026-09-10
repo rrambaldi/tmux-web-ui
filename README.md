@@ -227,10 +227,12 @@ generic frontend — every feature here exists because something was annoying.
   terminal `Ctrl+H` is `^H`, i.e. backspace for readline and for `vi` in insert mode —
   it is the one shortcut on this page that does not go through `Ctrl+Alt`, and swapping
   it is a one-line change.
-- `Ctrl+2` renames the active terminal (in grid mode, the active cell's), or
-  **double-click** the tab. Not `Ctrl+T`, which would have been handier: it is one of
-  the shortcuts the browser keeps for itself (it opens a new tab) and never reaches the
-  page at all, so no `preventDefault` can help. With profiles on (`PROFILI`), names and order
+- `Ctrl+0–9` renames the terminal with that **id** — the same id `Alt+0–9` jumps to:
+  the digit always means the same thing, only the modifier changes, and you can rename
+  a tab that is not the one in front. **Double-click** on the tab still works. Not
+  `Ctrl+T`, which would have been handier: it is one of the shortcuts the browser keeps
+  for itself (it opens a new tab) and never reaches the page at all, so no
+  `preventDefault` can help. With profiles on (`PROFILI`), names and order
   follow **the certificate's identity** rather than the browser: you get them back in a
   different browser, or in a private window. `localStorage` stays as a cache, so the
   page never waits on the network and still works when the server does not answer.

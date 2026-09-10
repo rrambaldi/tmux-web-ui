@@ -156,7 +156,9 @@ generico: sono tutte cose nate da un fastidio concreto.
   `Ctrl+H` e' `^H`, cioe' backspace per readline e per `vi` in inserimento — e' l'unica
   scorciatoia della pagina che non passa da `Ctrl+Alt`, e se da fastidio cambiarla e' una
   riga sola.
-- `Ctrl+2` rinomina il terminale attivo (in griglia: quello della cella attiva), o
+- `Ctrl+0–9` rinomina il terminale con quell'**id** — lo stesso id di `Alt+0–9`, che
+  invece ci salta: la cifra vuol dire sempre la stessa cosa, cambia solo il
+  modificatore, e si rinomina anche un tab che non e' quello davanti. Resta il
   **doppio click** sul tab. Non `Ctrl+T`, che sarebbe stato piu' comodo: e' fra le
   scorciatoie che il browser tiene per se' (apre una scheda nuova) e alla pagina non
   arriva nemmeno, quindi non c'e' `preventDefault` che tenga. Con i profili accesi (`PROFILI`) i nomi e

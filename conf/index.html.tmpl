@@ -731,7 +731,7 @@
         // Prima si toglie dal pulsante: il doppio click ce l'aveva lasciato e
         // senza blur il tab resterebbe marcato dal browser. [RR]
         btn.blur();
-        dagliIlFuoco(document.getElementById('term' + id));
+        dagliIlFuoco(pannelloAttivo());
       }
 
       function onKeyEdit(e) {
@@ -745,13 +745,14 @@
       span.addEventListener('blur', onBlur);
     }
 
-    // Rinomina senza mouse, sul terminale attivo (in griglia: quello della
-    // cella attiva). Il doppio click resta, ma da tastiera non c'era modo di
-    // arrivarci, e su un portatile senza mouse rinominare voleva dire prendere
-    // il trackpad e centrare un tab. [RR]
-    function rinominaAttivo() {
-      var b = pulsanti()[indiceAttivo()];
-      if (b) rinomina(b);
+    // Rinomina senza mouse il terminale con quell'id, che sia davanti o no: e'
+    // il gemello di Alt+cifra, che allo stesso id ci salta. Il doppio click
+    // resta, ma da tastiera non c'era modo di arrivarci, e su un portatile
+    // senza mouse rinominare voleva dire prendere il trackpad e centrare un
+    // tab. [RR]
+    function rinominaPerId(id) {
+      var btn = document.getElementById('term' + id + '-tab');
+      if (btn) rinomina(btn);
     }
 
     tabs.addEventListener('dblclick', function (e) {
@@ -1519,8 +1520,8 @@
       { titolo: 'Terminali', voci: [
         { tasti: ['Shift+←', 'Shift+→'], che: 'terminale precedente e successivo, nell\'ordine dei tab' },
         { tasti: ['Alt+0', 'Alt+9'], che: 'salta al terminale con quell\'id, ovunque sia finito' },
-        { tasti: ['Ctrl+2'], che: 'rinomina il terminale attivo: Invio conferma, Esc annulla, vuoto rimette il nome di serie' },
-        { gesto: 'doppio click sul tab', che: 'rinomina quel tab, come Ctrl+2' },
+        { tasti: ['Ctrl+0', 'Ctrl+9'], che: 'rinomina il terminale con quell\'id: Invio conferma, Esc annulla, vuoto rimette il nome di serie' },
+        { gesto: 'doppio click sul tab', che: 'rinomina quel tab, come Ctrl+cifra' },
         { gesto: 'trascina il tab', che: 'cambia l\'ordine dei terminali' }
       ] },
       { titolo: 'Piu\' terminali insieme', voci: [
@@ -1686,21 +1687,6 @@
         return;
       }
 
-      // Ctrl+2 rinomina il terminale attivo.
-      //
-      // Era Ctrl+F2; Ctrl+T, che sarebbe stato il preferito, non e' una scelta
-      // possibile: e' fra le scorciatoie che il browser tiene per se' (apre una
-      // scheda nuova) e alla pagina non arriva nemmeno, quindi un
-      // preventDefault non ci puo' niente. Ctrl+2 alla pagina arriva -- salvo
-      // browser che se lo prendano per saltare alla seconda scheda, ed e' la
-      // sola incognita rimasta. Nel terminale Ctrl+2 e' NUL (^@), che serve in
-      // emacs (set-mark) e quasi a nient'altro. [RR]
-      if (e.ctrlKey && !e.altKey && !e.metaKey && e.key === '2') {
-        e.preventDefault(); e.stopPropagation();
-        rinominaAttivo();
-        return;
-      }
-
       // Ctrl+Ins copia la selezione fatta dentro xterm: ttyd non ha nessuna
       // scorciatoia per copiare, si affida solo all'auto-copia su selezione
       // che il browser blocca quando non e' dentro un gesto utente.
@@ -1722,6 +1708,22 @@
         if (e.altKey && !e.ctrlKey && !e.metaKey && e.key >= '0' && e.key <= '9') {
           if (document.getElementById('term' + e.key + '-tab')) {
             e.preventDefault(); e.stopPropagation(); vaiPerId(e.key);
+          }
+        }
+        // Ctrl+0..9 rinomina QUEL terminale: stesso id di Alt+cifra, cosi' la
+        // cifra vuol dire sempre la stessa cosa e cambia solo il modificatore.
+        //
+        // Ctrl+T, che sarebbe stato il preferito per la rinomina, non e' una
+        // scelta possibile: e' fra le scorciatoie che il browser tiene per se'
+        // (apre una scheda nuova) e alla pagina non arriva nemmeno, quindi un
+        // preventDefault non ci puo' niente. Le Ctrl+cifra alla pagina
+        // arrivano -- salvo browser che se le prendano per saltare all'n-esima
+        // scheda, ed e' la sola incognita rimasta. Nel terminale sono sequenze
+        // di controllo che quasi nessuno usa (Ctrl+2 e' NUL, ^@, che serve in
+        // emacs per set-mark). [RR]
+        if (e.ctrlKey && !e.altKey && !e.metaKey && e.key >= '0' && e.key <= '9') {
+          if (document.getElementById('term' + e.key + '-tab')) {
+            e.preventDefault(); e.stopPropagation(); rinominaPerId(e.key);
           }
         }
         return;
