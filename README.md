@@ -511,4 +511,7 @@ here).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+The Gratitude & Random Kindness License — the MIT License, with a wish.
+Legally it is plain MIT: declare it as `MIT` wherever a license identifier is
+required. See [LICENSE](LICENSE) (English, binding) and
+[LICENSE.it.md](LICENSE.it.md) (Italian courtesy translation).

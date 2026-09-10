@@ -505,4 +505,7 @@ non c'e' (c'e' AppArmor, che di norma non ostacola questo caso).
 
 ## Licenza
 
-MIT — vedi [LICENSE](LICENSE).
+Licenza Gratitudine & Gentilezza Casuale — la licenza MIT, con un augurio.
+Giuridicamente e' MIT puro: dove serve un identificativo di licenza, dichiara
+`MIT`. Vedi [LICENSE](LICENSE) (inglese, fa fede) e
+[LICENSE.it.md](LICENSE.it.md) (traduzione italiana di cortesia).
