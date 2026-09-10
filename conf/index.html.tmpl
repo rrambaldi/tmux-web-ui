@@ -184,6 +184,22 @@
     body.schermo-piccolo .aiuto dl { grid-template-columns: 1fr; gap: .1rem; }
     body.schermo-piccolo .aiuto dd { margin-bottom: .45rem; }
 
+    /* --- la licenza ---------------------------------------------------------
+       Si apre da dentro l'aiuto e ci sta sopra, non al posto suo: l'aiuto
+       resta aperto dietro e ci si torna chiudendo questa. Da qui lo z-index
+       piu' alto, e il fatto che Esc chiuda prima la licenza. */
+    .licenza { z-index: 60; }
+    /* Il file e' gia' andato a capo a mano intorno alle 72 colonne, e a
+       caratteri fissi ci sta nella carta. pre-wrap e' per il telefono, dove
+       non ci sta: meglio un a capo storto che una barra di scorrimento
+       orizzontale su un testo che si legge dall'inizio alla fine. */
+    .licenza pre {
+      margin: 0; white-space: pre-wrap; overflow-wrap: break-word;
+      color: #c8c8c8; font-size: .78rem; line-height: 1.5;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    body.schermo-piccolo .licenza pre { font-size: .74rem; }
+
     /* --- griglia: piu' terminali insieme ------------------------------------
        Le celle NON spostano i pannelli nel DOM: si accendono con display e si
        mettono in fila con la proprieta' order. Spostare un <iframe> lo
@@ -262,6 +278,15 @@
 
   <!-- Tasti speciali per chi arriva da un telefono: riempita da JS -->
   <div class="tastiera" id="tastiera"></div>
+
+  <!-- Il testo della licenza, che il bottone dentro l'aiuto mostra. Ce lo
+       mette install.sh copiando il file LICENSE del progetto: una copia
+       scritta a mano qui si allontanerebbe dall'originale al primo ritocco,
+       e andarselo a prendere con una fetch() vorrebbe dire che nginx deve
+       servire anche quel file. Nascosto: lo legge il JS, non si stampa. [RR] -->
+  <pre id="testo-licenza" hidden>
+@LICENZA@
+</pre>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
@@ -1715,6 +1740,19 @@
         'certificato: li ritrovi cambiando browser.';
       corpo.appendChild(coda);
 
+      // La licenza sta qui dentro e non in testata: e' una cosa che si legge
+      // una volta, e questo e' l'unico posto della pagina dove c'e' spazio
+      // per dirla per intero senza togliere niente ai terminali. [RR]
+      var pieLicenza = document.createElement('p');
+      pieLicenza.appendChild(document.createTextNode('Dato liberamente: MIT, con un augurio. '));
+      var bLicenza = document.createElement('button');
+      bLicenza.type = 'button';
+      bLicenza.className = 'bottone-gela';
+      bLicenza.textContent = 'Leggi la licenza';
+      bLicenza.addEventListener('click', apriLicenza);
+      pieLicenza.appendChild(bLicenza);
+      corpo.appendChild(pieLicenza);
+
       carta.appendChild(testata);
       carta.appendChild(corpo);
       fondo.appendChild(carta);
@@ -1735,6 +1773,9 @@
 
     function chiudiAiuto() {
       if (!aiuto) return;
+      // Se la licenza sta aperta sopra, se ne va con lui: da sola resterebbe
+      // per aria, con il fondo di una finestra che non c'e' piu'.
+      chiudiLicenza();
       if (aiuto.parentNode) aiuto.parentNode.removeChild(aiuto);
       aiuto = null;
       bottoneAiuto.classList.remove('acceso');
@@ -1745,6 +1786,71 @@
 
     function commutaAiuto() { aiuto ? chiudiAiuto() : apriAiuto(); }
 
+    // --- la licenza ----------------------------------------------------------
+    // Stessa carta dell'aiuto -- classi .aiuto-*, cosi' c'e' un aspetto solo da
+    // mantenere -- con .licenza che la mette sopra. Il testo e' quello che
+    // install.sh ha scritto nel <pre> nascosto; se non c'e' (pagina generata da
+    // un modello vecchio) il bottone dice dove trovarlo invece di aprire una
+    // finestra vuota. [RR]
+    var licenza = null;
+
+    function testoLicenza() {
+      var sorgente = document.getElementById('testo-licenza');
+      // Il primo a capo e' quello che segue il tag di apertura, non fa parte
+      // del testo; in coda taglia via lo spazio prima del tag di chiusura.
+      var t = sorgente ? sorgente.textContent.replace(/^\n+/, '').replace(/\s+$/, '') : '';
+      return t || 'Il testo della licenza non e\' in questa pagina: sta nel file LICENSE del progetto.';
+    }
+
+    function apriLicenza() {
+      if (licenza) return;
+
+      var fondo = document.createElement('div');
+      fondo.className = 'aiuto licenza';
+
+      var carta = document.createElement('div');
+      carta.className = 'aiuto-carta';
+
+      var testata = document.createElement('div');
+      testata.className = 'aiuto-testata';
+      var titolo = document.createElement('strong');
+      titolo.textContent = 'Licenza';
+      var bChiudi = document.createElement('button');
+      bChiudi.type = 'button';
+      bChiudi.className = 'bottone-gela';
+      bChiudi.textContent = 'Chiudi (Esc)';
+      testata.appendChild(titolo);
+      testata.appendChild(bChiudi);
+
+      var corpo = document.createElement('div');
+      corpo.className = 'aiuto-corpo';
+      var pre = document.createElement('pre');
+      pre.textContent = testoLicenza();
+      corpo.appendChild(pre);
+
+      carta.appendChild(testata);
+      carta.appendChild(corpo);
+      fondo.appendChild(carta);
+      document.body.appendChild(fondo);
+
+      bChiudi.addEventListener('click', chiudiLicenza);
+      fondo.addEventListener('pointerdown', function (e) { if (e.target === fondo) chiudiLicenza(); });
+
+      licenza = fondo;
+      try { bChiudi.focus(); } catch (err) {}
+    }
+
+    function chiudiLicenza() {
+      if (!licenza) return;
+      if (licenza.parentNode) licenza.parentNode.removeChild(licenza);
+      licenza = null;
+      // Dietro c'e' ancora l'aiuto: il fuoco torna li', o Esc non avrebbe piu'
+      // nessuno a cui parlare. Se non c'e' piu' -- ci si arriva da
+      // chiudiAiuto() -- ci pensa lui a rimandarlo nel terminale.
+      var b = aiuto && aiuto.querySelector('.aiuto-testata button');
+      if (b) { try { b.focus(); } catch (err) {} }
+    }
+
     bottoneAiuto.title = 'Elenco delle scorciatoie (Ctrl+H)';
     bottoneAiuto.setAttribute('aria-pressed', 'false');
     bottoneAiuto.addEventListener('click', commutaAiuto);
@@ -1752,6 +1858,13 @@
     // --- tastiera ------------------------------------------------------------
     function onTasto(e) {
       if (inModifica) return;
+
+      // La licenza sta sopra l'aiuto e i tasti sono suoi finche' e' aperta:
+      // se no Ctrl+H chiuderebbe l'aiuto lasciando lei a mezz'aria.
+      if (licenza) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); chiudiLicenza(); }
+        return;
+      }
 
       // Ctrl+H apre e chiude l'elenco delle scorciatoie.
       //

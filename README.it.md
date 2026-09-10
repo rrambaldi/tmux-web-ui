@@ -157,6 +157,11 @@ generico: sono tutte cose nate da un fastidio concreto.
   `Ctrl+H` e' `^H`, cioe' backspace per readline e per `vi` in inserimento — e' l'unica
   scorciatoia della pagina che non passa da `Ctrl+Alt`, e se da fastidio cambiarla e' una
   riga sola.
+  In fondo a quella finestra il bottone **`Leggi la licenza`** apre la licenza in una
+  seconda carta sopra la prima — `Esc` o il bottone la chiudono e riportano alle
+  scorciatoie. Il testo e' il file `LICENSE` del progetto: ce lo copia `install.sh`
+  (segnaposto `@LICENZA@`), cosi' non si allontana dall'originale e non c'e' un altro
+  file da servire.
 - `Ctrl+0–9` rinomina il terminale con quell'**id** — lo stesso id di `Alt+0–9`, che
   invece ci salta: la cifra vuol dire sempre la stessa cosa, cambia solo il
   modificatore, e si rinomina anche un tab che non e' quello davanti. Resta il

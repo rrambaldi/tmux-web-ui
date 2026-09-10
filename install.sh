@@ -212,9 +212,21 @@ icona favicon-16x16.png    '<link rel="icon" type="image/png" sizes="16x16" href
 icona site.webmanifest     '<link rel="manifest" href="/site.webmanifest">'
 N_ICONE=$(wc -l < "$TMP/icone")
 
+# La licenza va dentro la pagina, nel <pre> nascosto che il bottone dell'aiuto
+# mostra: il testo e' quello del file LICENSE, non una copia nel modello che si
+# allontanerebbe dall'originale al primo ritocco. Finisce dentro dell'HTML,
+# quindi va escapato -- la & del titolo, da sola, basterebbe a romperlo. [RR]
+if [ -f "$RADICE/LICENSE" ]; then
+    sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' \
+        "$RADICE/LICENSE" > "$TMP/licenza"
+else
+    printf 'Licenza MIT: il testo sta nel file LICENSE del progetto.\n' > "$TMP/licenza"
+fi
+
 [ -f "$WEBROOT/index.html" ] && cp -p "$WEBROOT/index.html" "$WEBROOT/index.html.bak-$(date +%Y%m%d%H%M%S)"
 sed -e "/@ICONE@/r $TMP/icone" -e "/@ICONE@/d" \
     -e "/@TERMINALS@/r $TMP/terminals" -e "/@TERMINALS@/d" \
+    -e "/@LICENZA@/r $TMP/licenza" -e "/@LICENZA@/d" \
     -e "s|@TITOLO@|$TITOLO|g" \
     "$RADICE/conf/index.html.tmpl" > "$WEBROOT/index.html"
 chmod 644 "$WEBROOT/index.html"

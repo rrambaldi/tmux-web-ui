@@ -227,6 +227,11 @@ generic frontend — every feature here exists because something was annoying.
   terminal `Ctrl+H` is `^H`, i.e. backspace for readline and for `vi` in insert mode —
   it is the one shortcut on this page that does not go through `Ctrl+Alt`, and swapping
   it is a one-line change.
+  At the bottom of that window a **`Leggi la licenza`** button opens the license in a
+  second card on top of the first — `Esc` or the button closes it and takes you back to
+  the shortcuts. The text is the project's `LICENSE` file: `install.sh` copies it into
+  the page (placeholder `@LICENZA@`), so it cannot drift from the original and no extra
+  file has to be served.
 - `Ctrl+0–9` renames the terminal with that **id** — the same id `Alt+0–9` jumps to:
   the digit always means the same thing, only the modifier changes, and you can rename
   a tab that is not the one in front. **Double-click** on the tab still works. Not
