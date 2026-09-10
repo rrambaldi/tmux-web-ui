@@ -13,7 +13,22 @@ After=network.target
 # tmux new-session -A riattacca la sessione se esiste, altrimenti la crea: e'
 #    quello che rende il terminale persistente fra chiusure del browser. Con
 #    "exit" dalla shell la sessione muore e al riaggancio se ne crea una nuova.
-ExecStart=/usr/bin/ttyd -W -p %i -i 127.0.0.1 tmux new-session -A -s term-%i bash -l
+#
+# La configurazione dei titoli (/etc/tmux-terminali.conf) si applica in due
+# modi, perche' i due casi sono diversi davvero:
+#   -f            vale quando e' questa unit ad avviare il server tmux. Un
+#                 file di configurazione tmux lo legge SOLO all'avvio del
+#                 server, mai dopo.
+#   ExecStartPre  vale quando il server c'e' gia', ed e' il caso normale: con
+#                 KillMode=process il server sopravvive apposta ai restart,
+#                 quindi il -f non verrebbe mai riletto e le sessioni
+#                 resterebbero senza titoli fino al prossimo riavvio della
+#                 macchina. source-file le opzioni le applica sul server vivo.
+#                 Senza server fallisce -- e non ne avvia uno: un server tmux
+#                 senza sessioni si spegne subito -- e il '-' rende il
+#                 fallimento innocuo, perche' li' ci pensa il -f. [RR]
+ExecStartPre=-/usr/bin/tmux source-file /etc/tmux-terminali.conf
+ExecStart=/usr/bin/ttyd -W -p %i -i 127.0.0.1 tmux -f /etc/tmux-terminali.conf new-session -A -s term-%i bash -l
 Restart=always
 RestartSec=2
 

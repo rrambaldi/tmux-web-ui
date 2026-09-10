@@ -236,6 +236,26 @@ generic frontend — every feature here exists because something was annoying.
   follow **the certificate's identity** rather than the browser: you get them back in a
   different browser, or in a private window. `localStorage` stays as a cache, so the
   page never waits on the network and still works when the server does not answer.
+- **Automatic names**: a tab takes the name the terminal gives itself — the title the
+  application writes (`vim: report.txt`, `ssh host`, `top`), or the running command. The
+  🏷 button in the header (or `Ctrl+Alt+N`) cycles the three modes — **Titolo**,
+  **Comando**, **Nomi miei** — and the choice applies **immediately**, with nothing to
+  change on the server: tmux sends both fields inside the same title, and it is the page
+  that picks which one to show. The choice stays on this browser.
+  **The automatic name wins** over a hand-written one, which is not lost: it stays in the
+  profile and comes back as soon as the terminal has no title of its own — or when you
+  turn the automatic name off.
+  How it gets there: an application that sets the title sends `OSC 2`, and from a terminal
+  inside tmux that sequence **never comes out** — tmux intercepts it and keeps it as
+  `pane_title`. `conf/tmux-terminali.conf` turns `set-titles` on, which sends it back out
+  to the client — here the `xterm.js` inside ttyd, which writes it into its own
+  `document.title`; the dashboard, being same-origin, reads it with a `MutationObserver`
+  on the iframe's head. The title field comes out empty while it still equals the
+  hostname, which is what tmux puts in `pane_title` before anything changes it: without
+  that guard every tab would be named after the machine, and since the automatic name
+  wins, hand-written names would never show again.
+  A terminal that dies drops its automatic name too: the old title would describe an
+  application that is no longer running.
 - **Drag** tabs to reorder. Reordering moves the `<li>`, it does not recreate the
   iframe, so the session and its scrollback are untouched.
 - **Grid**: the `⊞ Griglia` button in the header (or `Ctrl+Alt+G`) shows **2, 4 or 6
@@ -463,6 +483,7 @@ impostazioni.locale.conf       optional, untracked: this server's real values (r
 install.sh                     idempotent end-to-end installer
 verifica.sh                    checks that a replica actually works, not just that it installed
 conf/ttyd@.service.tmpl        systemd template unit: one instance per port
+conf/tmux-terminali.conf       titles: lets the name a terminal gives itself out of tmux
 conf/nginx-terminali.conf.tmpl vhost: TLS, mTLS, websockets, /termN/ proxying
 conf/nginx-80.conf.tmpl        port 80: redirect to https (see PROTEGGI_80)
 conf/nginx-80-default.inc      extra block for PROTEGGI_80=default: takes the default server

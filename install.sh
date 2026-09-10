@@ -141,6 +141,11 @@ titolo "Certificato TLS del server"
 
 # --- 3. istanze ttyd ----------------------------------------------------------
 titolo "Unit ttyd@"
+# I titoli: senza questo file tmux tiene per se' il titolo che scrivono le
+# applicazioni e in pagina non arriva. Va installato PRIMA delle unit, che lo
+# leggono all'avvio.
+install -m 644 "$RADICE/conf/tmux-terminali.conf" /etc/tmux-terminali.conf
+echo "  /etc/tmux-terminali.conf: titoli dei terminali verso la pagina"
 sed -e "s|@UTENTE@|$UTENTE|g" -e "s|@GRUPPO@|$GRUPPO|g" \
     "$RADICE/conf/ttyd@.service.tmpl" > /etc/systemd/system/ttyd@.service
 chmod 644 /etc/systemd/system/ttyd@.service

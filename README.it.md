@@ -139,6 +139,7 @@ qualsiasi cosa.
 | Nomi dei tab legati all'utente | `PROFILI` (`si` / `no`), poi `./install.sh --salta-pacchetti` |
 | Azzerare il profilo di qualcuno | `rm $DIR_PROFILI/<cn>.json` — al prossimo accesso si ricrea |
 | Aggiungere i favicon | i file in `conf/icone/`, poi `./install.sh --salta-pacchetti` |
+| Spegnere i nomi automatici per tutti | `set -g set-titles off` in `conf/tmux-terminali.conf`, poi `./install.sh --salta-pacchetti` (per il solo browser basta il bottone 🏷) |
 | Controllare un'installazione in piedi | `sudo ./verifica.sh` — non modifica niente, e guarda anche il lato in chiaro |
 
 ## La dashboard
@@ -165,6 +166,26 @@ generico: sono tutte cose nate da un fastidio concreto.
   l'ordine seguono **l'identita' del certificato**, non il browser: li ritrovi cambiando
   browser o riaprendo in incognito. `localStorage` resta come cache, quindi la pagina
   non aspetta la rete e funziona anche se il server non risponde.
+- **Nomi automatici**: il tab prende il nome che il terminale si da' da solo — il
+  titolo che scrive l'applicazione (`vim: relazione.txt`, `ssh host`, `top`) oppure il
+  comando in esecuzione. Il bottone 🏷 in testata (o `Ctrl+Alt+N`) cicla fra i tre
+  modi — **Titolo**, **Comando**, **Nomi miei** — e la scelta vale **subito**, senza
+  toccare il server: tmux manda tutti e due i campi insieme dentro lo stesso titolo, e
+  a scegliere quale mostrare e' la pagina. La scelta resta su questo browser.
+  **L'automatico ha la precedenza** sul nome scritto a mano, che pero' non si perde:
+  resta salvato nel profilo e torna a vedersi appena il terminale non ha un titolo suo
+  — o spegnendo l'automatico dal bottone.
+  Come ci arriva: un'applicazione che scrive il titolo manda `OSC 2`, e a un terminale
+  dentro tmux quella sequenza **non esce**, perche' tmux la intercetta e se la tiene
+  come `pane_title`. `conf/tmux-terminali.conf` accende `set-titles`, che la rimanda
+  fuori verso il client — qui l'`xterm.js` dentro ttyd, che la scrive nel
+  `document.title` del proprio documento; la dashboard, stessa origine, la legge con un
+  `MutationObserver` sulla testa dell'iframe. Il campo del titolo esce vuoto finche'
+  vale l'hostname, che e' il valore che tmux da' a `pane_title` prima che qualcuno lo
+  cambi: senza quel controllo ogni tab si chiamerebbe come la macchina, e avendo
+  l'automatico la precedenza i nomi a mano non si vedrebbero piu'.
+  Un terminale che muore perde anche il nome automatico: il titolo di prima
+  racconterebbe un'applicazione che non gira piu'.
 - **Trascinamento** dei tab per riordinarli. Riordinare sposta il `<li>`, non ricrea
   l'iframe: la sessione e lo scrollback non si toccano.
 - **Griglia**: il bottone `⊞ Griglia` in testata (o `Ctrl+Alt+G`) mostra **2, 4 o 6
@@ -444,6 +465,7 @@ impostazioni.locale.conf       opzionale, non tracciato: i valori veri di QUESTO
 install.sh                     installatore idempotente end-to-end
 verifica.sh                    controlla che la replica funzioni davvero
 conf/ttyd@.service.tmpl        unit template: una istanza per porta
+conf/tmux-terminali.conf       titoli: fa uscire da tmux il nome che il terminale si da'
 conf/nginx-terminali.conf.tmpl vhost: TLS, mTLS, websocket, proxy dei /termN/
 conf/nginx-80.conf.tmpl        porta 80: redirect a https (vedi PROTEGGI_80)
 conf/nginx-80-default.inc      blocco in piu' per PROTEGGI_80=default: prende il default server

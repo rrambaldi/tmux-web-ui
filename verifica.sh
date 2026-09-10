@@ -25,6 +25,22 @@ done
 SESS=$(runuser -u "$UTENTE" -- tmux ls 2>/dev/null | wc -l)
 [ "$SESS" -ge "$N_TERM" ] && ok "$SESS sessioni tmux per $UTENTE" || info "sessioni tmux per $UTENTE: $SESS (nascono al primo collegamento)"
 
+# I nomi automatici dei tab: senza set-titles il titolo che scrive
+# l'applicazione resta dentro tmux e in pagina non arriva mai. Si guarda il
+# server VIVO, non il file: le opzioni si applicano all'avvio del server, e un
+# server piu' vecchio del file non le ha (la unit le rimette con source-file al
+# prossimo restart di una ttyd@).
+if [ -f /etc/tmux-terminali.conf ]; then
+    ok "/etc/tmux-terminali.conf presente"
+    if [ "$SESS" -gt 0 ]; then
+        T=$(runuser -u "$UTENTE" -- tmux show -gv set-titles 2>/dev/null)
+        [ "$T" = on ] && ok "titoli verso la pagina attivi (set-titles on)" \
+            || info "set-titles: ${T:-?} sul server tmux in piedi - i nomi automatici partono al prossimo restart di una ttyd@"
+    fi
+else
+    no "/etc/tmux-terminali.conf manca: i tab non prendono il nome dal terminale"
+fi
+
 echo "nginx:"
 # `nginx -t` da utente normale fallisce sui permessi (la chiave del server e'
 # 0600 di root), non perche' la configurazione sia sbagliata: senza questa

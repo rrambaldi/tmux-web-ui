@@ -276,15 +276,14 @@
     // decidere chi ha ragione fra la cache e il server: senza, il profilo che
     // arriva dalla rete cancella quello che si e' appena fatto qui. [RR]
     var CHIAVE_AGG    = 'terminal-dashboard-agg';
+    // Quale nome automatico si vuole: 'T' il titolo che scrive l'applicazione,
+    // 'W' il comando in esecuzione, 'no' nessuno (valgono solo i nomi miei).
+    var CHIAVE_TITOLI = 'terminal-dashboard-titoli';
 
     var tabs = document.getElementById('terminalTabs');
     var panes = document.getElementById('terminalTabsContent');
     var inModifica = false;   // mentre si rinomina, la tastiera non naviga
     var gelo = null;          // pannello attualmente congelato
-
-    // nome di default per id, indipendente dall'ordine dei tab
-    var PREDEFINITI = {};
-    TERMINALS.forEach(function (t) { PREDEFINITI[t.id] = t.label; });
 
     // --- preferenze locali ---------------------------------------------------
     // Nomi e ordine stanno in localStorage: valgono per questo browser, non per
@@ -297,6 +296,30 @@
       try { localStorage.setItem(chiave, JSON.stringify(valore)); }
       catch (err) { /* storage non disponibile: le preferenze valgono per questa sessione */ }
     }
+
+    // nome di default per id, indipendente dall'ordine dei tab
+    var PREDEFINITI = {};
+    TERMINALS.forEach(function (t) { PREDEFINITI[t.id] = t.label; });
+
+    // --- nomi automatici -----------------------------------------------------
+    // Quello che il terminale racconta di se': per ogni id il titolo scritto
+    // dall'applicazione (T) e il comando in esecuzione (W). Li manda tmux --
+    // vedi conf/tmux-terminali.conf -- dentro il titolo del documento
+    // dell'iframe, i due campi insieme, e la scelta di quale mostrare si fa
+    // qui: cambiarla non tocca tmux e non riavvia niente. [RR]
+    var AUTO = {};
+    var SEP = '\u241F';
+    var TITOLO_RE = new RegExp('DH' + SEP + '([^' + SEP + ']*)' + SEP + '([^' + SEP + ']*)' + SEP);
+    var MODI_TITOLO = ['T', 'W', 'no'];
+    var ETICHETTE_MODO = { T: '🏷 Titolo', W: '🏷 Comando', no: '🏷 Nomi miei' };
+    var SPIEGA_MODO = {
+      T: 'I tab prendono il titolo che scrive l\'applicazione (vim, ssh, top). Clicca per il comando in esecuzione.',
+      W: 'I tab prendono il comando in esecuzione. Clicca per usare solo i nomi scritti da te.',
+      no: 'I tab tengono i nomi scritti da te. Clicca per tornare al titolo dell\'applicazione.'
+    };
+    var modoTitolo = leggi(CHIAVE_TITOLI, 'T');
+    if (MODI_TITOLO.indexOf(modoTitolo) < 0) modoTitolo = 'T';
+
     // Da chiamare a ogni modifica VOLUTA (un nome, l'ordine, la griglia):
     // e' la data che il caricamento dopo confronta con quella del server.
     function tocca() { scrivi(CHIAVE_AGG, Date.now()); }
@@ -310,6 +333,75 @@
     function salvaOrdine() {
       scrivi(CHIAVE_ORDINE, pulsanti().map(function (b) { return Number(b.dataset.id); }));
       tocca();
+    }
+
+    // --- che nome porta un tab -----------------------------------------------
+    // Un posto solo a decidere, perche' i nomi arrivano da tre parti: il
+    // terminale (automatico), la rinomina a mano (localStorage e profilo) e
+    // l'elenco di serie. PRECEDE L'AUTOMATICO: se il terminale dice come si
+    // chiama, quello si legge. Il nome scritto a mano non si perde -- resta
+    // salvato e torna a vedersi appena l'automatico non ha niente da dire, o
+    // spegnendolo dal bottone. [RR]
+    function nomeMio(id) {
+      var n = leggi(CHIAVE_NOMI, {});
+      return n[id] || PREDEFINITI[id];
+    }
+    function nomeAuto(id) {
+      if (modoTitolo === 'no') return '';
+      var a = AUTO[id];
+      if (!a) return '';
+      return (modoTitolo === 'W' ? a.W : a.T) || '';
+    }
+    function scriviEtichetta(id) {
+      var btn = document.getElementById('term' + id + '-tab');
+      var span = btn && btn.querySelector('.etichetta');
+      if (!span || span.isContentEditable) return;   // rinomina in corso: non si tocca
+      var testo = nomeAuto(id) || nomeMio(id);
+      if (span.textContent !== testo) span.textContent = testo;
+    }
+    function scriviEtichette() {
+      TERMINALS.forEach(function (t) { scriviEtichetta(t.id); });
+    }
+
+    function mostraModoTitolo() {
+      bottoneTitoli.textContent = ETICHETTE_MODO[modoTitolo];
+      bottoneTitoli.title = SPIEGA_MODO[modoTitolo];
+    }
+    function commutaModoTitolo() {
+      modoTitolo = MODI_TITOLO[(MODI_TITOLO.indexOf(modoTitolo) + 1) % MODI_TITOLO.length];
+      scrivi(CHIAVE_TITOLI, modoTitolo);   // senza tocca(): e' di questo browser, non del profilo
+      mostraModoTitolo();
+      scriviEtichette();
+    }
+    // Il titolo del documento dentro l'iframe porta i due campi insieme,
+    // "DH<US>titolo<US>comando<US>", piu' la coda che ttyd ci appende
+    // (" | " e il titolo suo). Quello che non corrisponde -- il titolo di
+    // ttyd prima che tmux si faccia vivo, o una pagina d'errore -- non e' un
+    // nome e si ignora, lasciando il tab a quello che aveva.
+    function registraTitolo(id, titolo) {
+      var m = TITOLO_RE.exec(titolo || '');
+      if (!m) return;
+      var a = AUTO[id] || (AUTO[id] = { T: '', W: '' });
+      var t = m[1].trim(), w = m[2].trim();
+      if (a.T === t && a.W === w) return;
+      a.T = t; a.W = w;
+      scriviEtichetta(id);
+    }
+
+    // ttyd scrive document.title a ogni cambio di titolo del terminale
+    // (xterm.js -> onTitleChange). Same-origin, quindi lo si guarda da qui:
+    // il <title> puo' non esistere ancora quando l'iframe carica, percio'
+    // l'osservatore sta sulla testa e non sul nodo del titolo.
+    function agganciaTitolo(f, id) {
+      var d;
+      try { d = f.contentDocument; } catch (err) { return; }
+      if (!d || d.__titoloAgganciato) return;
+      d.__titoloAgganciato = true;
+      var testa = d.head || d.documentElement;
+      if (!testa) return;
+      function guarda() { registraTitolo(id, d.title); }
+      guarda();
+      new MutationObserver(guarda).observe(testa, { childList: true, subtree: true, characterData: true });
     }
 
     // --- costruzione ---------------------------------------------------------
@@ -419,6 +511,17 @@
     // Le scorciatoie stavano in un rigo di testo qui in testata: lungo, e
     // nascosto proprio sugli schermi stretti dove servirebbe. Ora stanno nella
     // finestra dell'aiuto, che si apre da questo bottone o con Ctrl+H.
+    // Il nome automatico si sceglie da qui, e si sceglie ADESSO: tmux manda
+    // sempre tutti e due i campi, quindi passare dal titolo dell'applicazione
+    // al comando -- o spegnere l'automatico -- e' solo una decisione di questa
+    // pagina. Niente da riconfigurare sul server, niente da riavviare. [RR]
+    var bottoneTitoli = document.createElement('button');
+    bottoneTitoli.type = 'button';
+    bottoneTitoli.className = 'bottone-gela';
+    // Qui e non lassu' con commutaModoTitolo(): il bottone nasce a questo
+    // punto del file, e agganciarsi prima vuol dire agganciarsi a undefined.
+    bottoneTitoli.addEventListener('click', commutaModoTitolo);
+
     var bottoneAiuto = document.createElement('button');
     bottoneAiuto.type = 'button';
     bottoneAiuto.className = 'bottone-gela';
@@ -426,6 +529,7 @@
 
     barraDx.appendChild(bottoneGiu);
     barraDx.appendChild(bottoneSu);
+    barraDx.appendChild(bottoneTitoli);
     barraDx.appendChild(bottoneGriglia);
     barraDx.appendChild(bottoneTastiera);
     barraDx.appendChild(bottoneStoria);
@@ -721,9 +825,12 @@
         if (conferma) {
           // niente newline: il contenteditable le lascia passare
           var nuovo = span.textContent.replace(/\s+/g, ' ').trim();
-          span.textContent = nuovo || PREDEFINITI[id];
           salvaNome(id, nuovo && nuovo !== PREDEFINITI[id] ? nuovo : '');
           sincronizza();   // solo le rinomine VOLUTE salgono al server
+          // Non si scrive il nome nello span: lo decide scriviEtichetta, che
+          // sa se in questo momento vince l'automatico. Il contentEditable e'
+          // gia' chiuso sopra, quindi non si autoesclude. [RR]
+          scriviEtichetta(id);
         } else {
           span.textContent = precedente;
         }
@@ -781,6 +888,7 @@
         agganciaTasti(f);
         agganciaCella(f, pane);
         agganciaOverlay(f, pane.id.slice(4));
+        agganciaTitolo(f, pane.id.slice(4));
         attendiTerminale(pane, 100);
         if (pane.classList.contains('active') && !inModifica && !gelo) dagliIlFuoco(pane);
       });
@@ -877,12 +985,7 @@
 
       if (p.nomi && typeof p.nomi === 'object') {
         scrivi(CHIAVE_NOMI, p.nomi);
-        TERMINALS.forEach(function (t) {
-          var btn = document.getElementById('term' + t.id + '-tab');
-          var span = btn && btn.querySelector('.etichetta');
-          if (!span || span.isContentEditable) return;   // rinomina in corso: non si tocca
-          span.textContent = p.nomi[t.id] || PREDEFINITI[t.id];
-        });
+        scriviEtichette();   // e dove il terminale ha un nome suo, resta quello
       }
 
       if (Array.isArray(p.ordine)) {
@@ -1522,7 +1625,8 @@
         { tasti: ['Alt+0', 'Alt+9'], che: 'salta al terminale con quell\'id, ovunque sia finito' },
         { tasti: ['Ctrl+0', 'Ctrl+9'], che: 'rinomina il terminale con quell\'id: Invio conferma, Esc annulla, vuoto rimette il nome di serie' },
         { gesto: 'doppio click sul tab', che: 'rinomina quel tab, come Ctrl+cifra' },
-        { gesto: 'trascina il tab', che: 'cambia l\'ordine dei terminali' }
+        { gesto: 'trascina il tab', che: 'cambia l\'ordine dei terminali' },
+        { tasti: ['Ctrl+Alt+N'], che: 'nome dei tab: titolo dell\'applicazione, comando in esecuzione, solo i nomi scritti da te (come il bottone 🏷)' }
       ] },
       { titolo: 'Piu\' terminali insieme', voci: [
         { tasti: ['Ctrl+Alt+G'], che: 'uno solo → 2 → 4 → 6, fra i formati che lo schermo regge' },
@@ -1536,6 +1640,7 @@
       ] },
       { titolo: 'Bottoni in testata', voci: [
         { gesto: 'A›a  a›A', che: 'caratteri piu\' piccoli e piu\' grandi; la scelta batte l\'automatico e resta su questo browser' },
+        { gesto: '🏷 Titolo / Comando / Nomi miei', che: 'da dove viene il nome dei tab. L\'automatico ha la precedenza sui nomi scritti a mano, che restano salvati e tornano appena il terminale non ha un titolo suo' },
         { gesto: '⊞ Griglia', che: 'quanti terminali a schermo; compare solo dove c\'e\' spazio' },
         { gesto: '⌨ Tasti', che: 'la barra con Esc, Tab, frecce e PagSu/PagGiu, per le tastiere che non li hanno' },
         { gesto: '⇱ Storia', che: 'entra e esce dalla copy-mode di tmux (Ctrl-B [): li\' le frecce scorrono lo scrollback' },
@@ -1687,6 +1792,14 @@
         return;
       }
 
+      // Ctrl+Alt+N cicla il nome dei tab: titolo dell'applicazione, comando in
+      // esecuzione, solo i nomi scritti a mano.
+      if (e.ctrlKey && e.altKey && !e.metaKey && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault(); e.stopPropagation();
+        commutaModoTitolo();
+        return;
+      }
+
       // Ctrl+Ins copia la selezione fatta dentro xterm: ttyd non ha nessuna
       // scorciatoia per copiare, si affida solo all'auto-copia su selezione
       // che il browser blocca quando non e' dentro un gesto utente.
@@ -1801,8 +1914,11 @@
       if (!btn) return;
       var span = btn.querySelector('.etichetta');
       if (!span || span.isContentEditable) return;   // rinomina in corso: non si tocca
-      if (span.textContent === PREDEFINITI[id]) return;
-      span.textContent = PREDEFINITI[id];
+
+      // Anche il nome automatico se ne va: la sessione dietro non c'e' piu',
+      // quindi quel titolo racconta un'applicazione che non gira. Senza
+      // questo il tab resterebbe "vim: relazione.txt" su un terminale morto.
+      delete AUTO[id];
 
       // Senza tocca(): non e' una modifica VOLUTA, e non deve vincere sul
       // profilo del server. Se lo facesse, una sessione finita qui
@@ -1812,6 +1928,7 @@
       var n = leggi(CHIAVE_NOMI, {});
       delete n[id];
       scrivi(CHIAVE_NOMI, n);
+      scriviEtichetta(id);
     }
 
     function agganciaOverlay(f, id) {
@@ -1864,6 +1981,7 @@
     classiSchermo();
     etichetteFont();
     mostraStoria();
+    mostraModoTitolo();
 
     // Primo tab subito, gli altri a richiesta.
     caricaPannello(panes.querySelector('.tab-pane.active'));
