@@ -147,8 +147,41 @@ qualsiasi cosa.
 Un `index.html` che carica i terminali in `iframe`, uno per tab. Non e' un frontend
 generico: sono tutte cose nate da un fastidio concreto.
 
-- `Shift+←/→` cambia tab seguendo l'**ordine visivo**; `Alt+0–9` salta all'**id** del
-  terminale, che non cambia mai anche se riordini.
+- **Il contenitore dei terminali liberi.** I tab in testata sono i terminali **in uso**;
+  tutti gli altri stanno in una fila di pastiglie sotto la barra dei tab, e da li' si
+  prendono con un click: il tab compare in coda alla testata e diventa quello davanti.
+  Quando dal terminale fai `exit` (o `Ctrl-D`) la shell muore, il tab si chiude da se' e
+  il terminale torna in fila col nome di serie. Appena installato — e da qualunque
+  browser che non ha ancora aperto niente — sono tutti nel contenitore, che prende tutto
+  lo schermo perche' non c'e' nient'altro da mostrare.
+  Un tab si chiude anche a mano: il `✕` che compare su quello davanti, il terzo tasto del
+  mouse, o `Ctrl+Alt+W`. La **sessione tmux non si tocca**, quello che gira dentro
+  continua a girare e riaprendo il terminale lo ritrovi; a morire e' solo lo scrollback
+  di `xterm.js`, non quello di tmux. Chiudere stacca l'iframe, e non e' pulizia: un
+  pannello nascosto ma ancora attaccato resta un client tmux, e tmux dimensiona la
+  finestra sul client **piu' piccolo** — resterebbe li' a strozzare le celle degli altri.
+  La fila costa una riga di schermo, percio' si nasconde col bottone `▤ n liberi` in
+  testata (scelta ricordata, e per questo browser: e' spazio sullo schermo che hai
+  davanti). Con la testata vuota si vede comunque, perche' e' l'unico modo per aprire
+  qualcosa.
+  **Quello che il contenitore non sa** e' se dietro a un terminale libero ci sia una
+  sessione con del lavoro dentro: non e' una cosa che il browser possa sapere senza
+  attaccarsi, e attaccarsi e' proprio cio' che si sta decidendo di fare. La regola e'
+  percio' un'altra, e si mantiene da se': un terminale e' libero finche' nessuno lo apre
+  da qui, e ci torna appena la sua shell muore. Al riavvio del *servizio* i tab restano
+  come sono, e giustamente — le sessioni sopravvivono, vedi `KillMode=process`; dopo un
+  riavvio della macchina le sessioni non ci sono piu' ma i tab tornano dov'erano, e il
+  primo riaggancio ne crea una pulita.
+  Chi **aggiorna** da una versione precedente riparte con la testata vuota e tutto nel
+  contenitore: l'elenco degli aperti sta in una chiave nuova
+  (`terminal-dashboard-aperti`), e il vecchio ordine — che elencava *tutti* i terminali,
+  perche' tutti avevano un tab — non si legge piu'.
+- `Shift+←/→` cambia tab seguendo l'**ordine visivo**; `Alt+1–9` va al tab in quella
+  **posizione** in testata e `Alt+0` all'ultimo, quello piu' a destra: con dieci
+  terminali aperti la fila di tasti da 1 a 0 copre esattamente la fila dei tab. La cifra
+  segue quello che si **vede**, non l'id del terminale, ed e' un cambio voluto: adesso i
+  tab nascono e muoiono, e con la cifra legata all'id si premeva `Alt+4` senza sapere se
+  dietro ci fosse un tab.
 - `Ctrl+H` (o il bottone **`? Aiuto`**) apre l'**elenco delle scorciatoie**: tasti, gesti
   col mouse e cosa fa ogni bottone della testata. Prima era un rigo di testo in testata,
   che spariva sotto i 1100px — cioe' era leggibile solo dove c'era spazio per fare a meno
@@ -162,14 +195,15 @@ generico: sono tutte cose nate da un fastidio concreto.
   scorciatoie. Il testo e' il file `LICENSE` del progetto: ce lo copia `install.sh`
   (segnaposto `@LICENZA@`), cosi' non si allontana dall'originale e non c'e' un altro
   file da servire.
-- `Ctrl+0–9` rinomina il terminale con quell'**id** — lo stesso id di `Alt+0–9`, che
-  invece ci salta: la cifra vuol dire sempre la stessa cosa, cambia solo il
+- `Ctrl+1–9` rinomina il tab in quella **posizione** (`Ctrl+0` l'ultimo) — la stessa
+  cifra con cui `Alt` ci salta: vuol dire sempre lo stesso tab, cambia solo il
   modificatore, e si rinomina anche un tab che non e' quello davanti. Resta il
   **doppio click** sul tab. Non `Ctrl+T`, che sarebbe stato piu' comodo: e' fra le
   scorciatoie che il browser tiene per se' (apre una scheda nuova) e alla pagina non
-  arriva nemmeno, quindi non c'e' `preventDefault` che tenga. Con i profili accesi (`PROFILI`) i nomi e
-  l'ordine seguono **l'identita' del certificato**, non il browser: li ritrovi cambiando
-  browser o riaprendo in incognito. `localStorage` resta come cache, quindi la pagina
+  arriva nemmeno, quindi non c'e' `preventDefault` che tenga. Con i profili accesi
+  (`PROFILI`) i nomi, **quali terminali sono aperti** e in che ordine seguono
+  **l'identita' del certificato**, non il browser: li ritrovi cambiando browser o
+  riaprendo in incognito. `localStorage` resta come cache, quindi la pagina
   non aspetta la rete e funziona anche se il server non risponde.
 - **Nomi automatici**: il tab prende il nome che il terminale si da' da solo — il
   titolo che scrive l'applicazione (`vim: relazione.txt`, `ssh host`, `top`) oppure il
@@ -198,11 +232,13 @@ generico: sono tutte cose nate da un fastidio concreto.
   2×2, 6 in 3×2. Compare solo dove c'e' spazio davvero (2 da 1200px, 4 da 1500×800, 6
   da 1900×800): sotto i ~600px per cella un terminale non tiene 80 colonne a un font
   leggibile, e sei finestrelle illeggibili valgono meno di una sola che si legge; su un
-  telefono il bottone non c'e' proprio. La griglia e' un **insieme** di terminali, non
-  un'assegnazione cella per cella: l'ordine in cui compaiono e' quello dei tab, percio'
-  le celle si spostano trascinando i tab come sempre, senza imparare un secondo modo di
-  riordinare. Da qui una regola sola, valida per il click su un tab, per `Alt+0–9` e per
-  `Shift+←/→`: **se quel terminale e' gia' a schermo la sua cella diventa quella attiva,
+  telefono il bottone non c'e' proprio. Le celle si riempiono con i **tab in testata**,
+  quindi il bottone compare da due terminali aperti in su: con tre tab aperti non
+  esiste un formato da tre, e si usa il piu' grande che ci sta. La griglia e' un
+  **insieme** di terminali, non un'assegnazione cella per cella: l'ordine in cui
+  compaiono e' quello dei tab, percio' le celle si spostano trascinando i tab come
+  sempre, senza imparare un secondo modo di riordinare. Da qui una regola sola, valida
+  per il click su un tab, per `Alt+cifra` e per `Shift+←/→`: **se quel terminale e' gia' a schermo la sua cella diventa quella attiva,
   se non c'e' prende il posto della cella attiva**. La cella attiva ha la cornice verde
   ed e' quella che riceve i tasti, `Congela`, `Storia` e la barra dei tasti; si sceglie
   anche cliccando dentro il terminale. Lo stesso terminale non puo' stare in due celle,
@@ -253,17 +289,16 @@ generico: sono tutte cose nate da un fastidio concreto.
   sue, reagisce alle classi che il JS mette sul `body`. In griglia la larghezza che conta
   non e' quella della finestra ma quella della **cella**: un 1920 diviso in tre da' celle
   da 630, e li' il font e' quello che si userebbe su uno schermo da 630.
-- Quando la connessione cade, il **nome del tab torna al default**: se hai fatto `exit`
-  la sessione tmux e' morta e al riaggancio `-A` ne crea una nuova, quindi l'etichetta
-  descriverebbe qualcosa che non esiste piu'. Con tre eccezioni, perche' qui si cancella
-  una cosa scritta a mano: **non** si azzera niente mentre la pagina se ne va
-  (`pagehide`/`beforeunload`), mentre non e' a schermo, e per qualche secondo dopo che ci
-  e' tornata. Ricaricando, le websocket cadono per forza e ttyd fa in tempo a scrivere
-  "Connection Closed": senza quelle guardie il nome veniva azzerato proprio durante l'F5 —
-  ed e' il difetto che faceva sembrare che i nomi non si salvassero. Al ritorno da un
-  telefono bloccato vale lo stesso: quella e' la coda della disconnessione di sistema,
-  non un `exit`. L'azzeramento inoltre **non aggiorna la data** del profilo: non e' una
-  modifica voluta, e non deve vincere su quello che c'e' sul server.
+- **Quando la shell muore, il tab si chiude.** `exit` o `Ctrl-D` chiudono la shell, la
+  sessione tmux finisce e dietro a quel tab non c'e' piu' niente: il tab se ne va, il
+  terminale torna fra i liberi e il **nome torna quello di serie** — descriveva cio' che
+  girava, e al riaggancio `-A` crea una sessione nuova, non riattacca quella di prima.
+  Come si distingue una sessione morta da una linea caduta sta fra le trappole: si guarda
+  il `[exited]` che il client tmux lascia scritto, non il "Connection Closed" di ttyd,
+  che compare in tutti e due i casi. Mentre la pagina se ne va
+  (`pagehide`/`beforeunload`) non si chiude niente: ricaricando le websocket cadono per
+  forza, e chiudere dei tab li' vorrebbe dire salvare un elenco di aperti mutilato e
+  ritrovarsi meta' terminali nel contenitore dopo un `F5`.
 - I messaggi di ttyd ("Reconnecting…", "Press ⏎ to Reconnect") sono forzati a
   **sans-serif** via `MutationObserver`: sono un `<div>` che ttyd appende dentro
   l'iframe con lo stile tutto in linea, quindi ne' il CSS della pagina ne' una regola
@@ -293,10 +328,11 @@ giornata. Il controllo viene generato in entrambe le modalita': con `on` non sca
 e sta li' perche' passare a `optional` sia una variabile e non una revisione di
 sicurezza.
 
-**I profili non hanno bisogno di un backend.** Nomi e ordine dei tab stanno in un JSON
-per identita', e a servirlo e a scriverlo e' nginx stesso: il pacchetto di Rocky ha
-`ngx_http_dav_module` compilato, quindi il `PUT` lo accetta da se'. Niente processi in
-piu' da tenere in piedi, niente porte nuove, tutto dentro l'mTLS che c'e' gia'.
+**I profili non hanno bisogno di un backend.** Nomi dei tab, quali terminali sono aperti
+e in che ordine, e la griglia, stanno in un JSON per identita', e a servirlo e a
+scriverlo e' nginx stesso: il pacchetto di Rocky ha `ngx_http_dav_module` compilato,
+quindi il `PUT` lo accetta da se'. Niente processi in piu' da tenere in piedi, niente
+porte nuove, tutto dentro l'mTLS che c'e' gia'.
 
 L'identita' e' il **CN del certificato client**, l'unica cosa che il servizio sa di chi
 entra. nginx non ha una variabile per il CN, solo il DN intero: si estrae con una `map`,
@@ -341,11 +377,14 @@ Due conseguenze da tenere a mente:
   secondo piano (con `keepalive`, o il browser l'annullerebbe), cosi' la finestra in cui
   qualcosa puo' non essere ancora salito si chiude quasi sempre da se'.
 
-Una cosa che si sceglie di *non* propagare: quando la connessione cade, l'etichetta
-torna al default (vedi sotto), ma quel ritorno resta **locale**. Se salisse al server,
-una websocket caduta — un riavvio di nginx, il telefono che perde campo — cancellerebbe
-il nome su tutti i browser di quella identita'. Al server salgono solo le rinomine
-volute.
+**Una cosa che prima non si propagava, e adesso si'.** Quando una sessione muore il nome
+del tab torna al default, e quel ritorno arriva anche al server. Prima restava locale, e
+per un buon motivo: l'unico indizio era il "Connection Closed" di ttyd, e con quello un
+riavvio di nginx avrebbe cancellato i nomi su **tutti** i browser di quella identita'.
+Adesso l'indizio e' il `[exited]` del client tmux, che c'e' solo quando la sessione e'
+finita davvero — e una sessione finita e' finita per tutti i dispositivi, non solo per
+quello che se ne accorge. Lo stesso vale per la chiusura del tab, che sale con l'elenco
+degli aperti.
 
 **La porta 80 non e' tua.** L'mTLS difende la 443 e non dice niente sulla 80, dove la
 configurazione di serie di nginx tiene
@@ -427,6 +466,26 @@ repo, ma un server che le ha gia' si tiene le sue icone anche dopo un rilancio.
 una sessione lasciata ferma verrebbe chiusa da nginx e il terminale andrebbe in
 reconnect. Sull'originale non si notava perche' la status line di tmux si aggiorna ogni
 15s e tiene il canale caldo — cioe' funzionava per un effetto collaterale.
+
+**Come si sa che la shell e' morta.** ttyd scrive "Connection Closed" sia quando la
+sessione finisce sia quando cade solo la linea, e qui la differenza pesa: nel primo caso
+si chiude un tab e si cancella un nome scritto a mano, nel secondo si deve stare fermi e
+lasciare che ttyd si riagganci. Si guarda percio' cio' che il **client tmux** lascia
+scritto sullo schermo prima di uscire: quando la sessione se ne va esce dallo schermo
+alternativo (`ESC [ ? 1049 l`), pulisce e stampa una riga
+
+```
+[exited]
+```
+
+che finisce nel buffer di `xterm.js` e si legge come si legge l'indicatore della
+copy-mode. Verificato su **tmux 3.2a** registrando il pty di un client vero. Una linea
+caduta non lo stampa: dall'altra parte il processo viene ucciso, non esce, e lo schermo
+resta all'ultimo fotogramma. Il controllo si ripete per un paio di secondi dopo
+l'avviso di ttyd, perche' `xterm.js` scrive in modo asincrono e le ultime righe possono
+essere ancora in coda. Se una versione di tmux non stampasse quella riga il tab resta
+aperto sul terminale morto, e lo si chiude col `✕`: si perde la comodita', non il
+lavoro.
 
 **Come si sa se la copy-mode e' attiva.** Non tenendo il conto dei click sul bottone:
 con una tastiera vera si entra e si esce da soli, e una spia che mente e' peggio di

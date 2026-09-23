@@ -119,7 +119,7 @@ if [ -r "$CRT" ] && [ -r "$KEY" ]; then
             # non permette la scrittura, e' qui che si vede.
             MARCA="prova-$(date +%s)"
             C=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" -o /dev/null -w '%{http_code}' \
-                     -X PUT --data "{\"nomi\":{\"0\":\"$MARCA\"},\"ordine\":[]}" \
+                     -X PUT --data "{\"nomi\":{\"0\":\"$MARCA\"},\"aperti\":[]}" \
                      "https://$DOMINIO/profili/$IO.json" 2>/dev/null)
             case "$C" in
                 201|204) ok "PUT /profili/$IO.json -> $C" ;;

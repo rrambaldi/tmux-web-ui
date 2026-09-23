@@ -10,17 +10,32 @@
        caricamento. Senza icone qui non compare niente. [RR] -->
 @ICONE@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Icone piatte e uniformi per i bottoni: prima erano glifi Unicode (⌨ ❄ ⊞ ⇱ ▤ ?),
+       che ogni sistema disegna a modo suo -- alcuni piatti, altri con ombra o a
+       colori come emoji. Con un font di icone sono tutte lo stesso tratto. [RR] -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- Manrope per titoli e bottoni: al posto del sans-serif di sistema di
+       Bootstrap. I terminali e il testo selezionabile restano monospace, che
+       hanno un font-family esplicito piu' sotto e non lo ereditano da qui. [RR] -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    html, body { height: 100%; margin: 0; background-color: #121212; color: #fff; overflow: hidden; }
+    html, body {
+      height: 100%; margin: 0; background-color: #121212; color: #fff; overflow: hidden;
+      font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
     /* la barra dei tab puo' andare a capo su schermi stretti: l'altezza dei pannelli
        si adatta da sola grazie al flex, senza calcoli fissi tipo calc(100vh - 56px) */
     body { display: flex; flex-direction: column; }
     /* un solo accento per tutto cio' che e' "acceso": tab attivo e etichetta in modifica [RR] */
-    :root { --acc: #35e3a4; --acc-fondo: #10261f; --acc-bordo: #1f5544; }
+    /* meno acceso del verde neon di prima, che cozzava con quello di serie
+       della status-bar di tmux [RR] */
+    :root { --acc: #4fae8c; --acc-fondo: #14261f; --acc-bordo: #2b5145; }
     .nav-tabs { background-color: #1e1e1e; border-bottom: 1px solid #333; flex: 0 0 auto; }
     .nav-link {
       position: relative;   /* ancora la barra dell'accento [RR] */
-      color: #8c8c8c; border-radius: 0;
+      color: #8c8c8c; border-radius: 0; font-size: 14px;
       cursor: grab; user-select: none;
       touch-action: none;   /* serve ai pointer events: senza, il touch scrolla invece di trascinare */
       transition: color .18s cubic-bezier(.32,.72,0,1), background-color .18s cubic-bezier(.32,.72,0,1);
@@ -39,15 +54,27 @@
     .nav-link.active {
       background-color: var(--acc-fondo) !important;
       color: var(--acc) !important;
-      font-weight: 600; letter-spacing: .01em;
+      font-weight: 600;
       border-color: var(--acc-bordo) var(--acc-bordo) var(--acc-fondo) !important;
     }
     /* barra accesa sopra il tab attivo: si trova a colpo d'occhio anche con 10 tab [RR] */
     .nav-link.active::after {
       content: ''; position: absolute; left: -1px; right: -1px; top: -1px; height: 3px;
-      background: var(--acc); box-shadow: 0 0 10px rgba(53,227,164,.55);
+      background: var(--acc); box-shadow: 0 0 10px rgba(79,174,140,.4);
     }
     .nav-link.trascina { opacity: .45; cursor: grabbing; }
+    /* Il ✕ che chiude il tab. Il terminale non muore: torna nel contenitore
+       dei liberi, e la sessione tmux dietro continua a girare. Compare solo
+       sul tab davanti e su quello sotto il puntatore -- dieci ✕ sempre accesi
+       sono dieci bersagli da sbagliare, e allargherebbero ogni tab di un
+       carattere proprio dove lo spazio non c'e'. Col dito ci si arriva
+       comunque: un tocco porta il tab davanti, il secondo lo chiude. [RR] */
+    .chiudi {
+      display: none; margin-left: .4em; padding: 0 .15em;
+      color: #8c8c8c; font-size: .85em; line-height: 1; border-radius: 2px;
+    }
+    .nav-link.active .chiudi, .nav-link:hover .chiudi { display: inline-block; }
+    .chiudi:hover { color: #fff; background: #4a2d2d; }
     .tab-content { flex: 1 1 auto; min-height: 0; }
     .tab-pane { height: 100%; position: relative; }   /* riferimento per l'overlay di congelamento */
     iframe { width: 100%; height: 100%; border: none; display: block; background: #000; }
@@ -55,7 +82,11 @@
     .bottone-gela {
       background: #2a2a2a; color: #ccc; border: 1px solid #444; border-radius: 3px;
       font-size: .78rem; padding: .15rem .5rem; cursor: pointer; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: .35em;
     }
+    /* le icone del font sono piu' scure del testo di default: senza questa
+       riga sembravano spente anche sui bottoni "accesi". [RR] */
+    .bottone-gela .bi, .gelo-barra strong .bi { color: inherit; }
     .bottone-gela:hover { background: #333; color: #fff; }
     /* 'A-' e 'A+' dicevano quanto un segno di spunta: il verso adesso lo
        disegna la dimensione stessa delle due lettere, A>a rimpicciolisce e
@@ -83,6 +114,7 @@
       font-size: .78rem; padding: .15rem .55rem; cursor: pointer;
     }
     .gelo-barra button:hover { background: #2a2a2a; color: #fff; }
+    .gelo-barra strong { display: inline-flex; align-items: center; gap: .35em; }
     .gelo-barra label { display: flex; align-items: center; gap: .3rem; cursor: pointer; user-select: none; }
     .gelo-nota { color: #8ab; font-size: .75rem; }
     .gelo-testo {
@@ -115,6 +147,52 @@
     }
     .tasto:active { background: var(--acc-fondo); color: var(--acc); border-color: var(--acc-bordo); }
     .tasto:focus, .tasto:focus-visible { outline: none; }
+
+    /* --- il contenitore dei terminali liberi --------------------------------
+       I tab in testata sono i terminali IN USO. Quelli che nessuno sta usando
+       stanno qui, e da qui si prendono con un click; quando la shell muore il
+       tab si chiude e il terminale torna in questa fila. Al primo accesso ci
+       sono tutti.
+       Costa una riga di schermo, percio' si nasconde col bottone "n liberi" -- tranne
+       quando in testata non c'e' niente, dove e' l'unico modo per aprire un
+       terminale e prende tutto lo spazio che c'e'. [RR] */
+    .scatola { display: none; }
+    body.con-scatola .scatola {
+      flex: 0 0 auto; display: flex; align-items: center; flex-wrap: wrap; gap: .3rem;
+      padding: .3rem .5rem; background: #171717; border-bottom: 1px solid #2c2c2c;
+    }
+    .scatola-nota {
+      color: #6f6f6f; font-size: .72rem; text-transform: uppercase;
+      letter-spacing: .08em; margin-right: .2rem;
+    }
+    .chip {
+      background: #232323; color: #9d9d9d; border: 1px solid #3a3a3a; border-radius: 999px;
+      font-family: inherit; font-size: .78rem; padding: .1rem .6rem;
+      cursor: pointer; white-space: nowrap;
+    }
+    .chip .etichetta {
+      display: inline-block; max-width: 14ch; vertical-align: bottom;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .chip:hover { background: #2c2c2c; color: #e6e6e6; border-color: #4a4a4a; }
+    .chip:active { background: var(--acc-fondo); color: var(--acc); border-color: var(--acc-bordo); }
+
+    /* Testata vuota: non c'e' nessun terminale da mostrare, quindi il
+       contenitore si prende lo schermo e i chip diventano grossi come serve a
+       prenderli col dito. La barra dei tasti speciali se ne va: senza un
+       terminale davanti non ha nessuno a cui parlare. */
+    body.senza-tab .tab-content,
+    body.senza-tab .tastiera { display: none; }
+    body.senza-tab.con-scatola .scatola {
+      flex: 1 1 auto; align-content: center; justify-content: center;
+      padding: 1rem; gap: .5rem; border-bottom: none;
+    }
+    body.senza-tab .scatola-nota {
+      width: 100%; text-align: center; margin: 0 0 .5rem;
+      text-transform: none; letter-spacing: 0; font-size: .85rem;
+    }
+    body.senza-tab .chip { font-size: 1rem; padding: .45rem 1.1rem; }
+    body.senza-tab .chip .etichetta { max-width: 18ch; }
 
     /* Un bottone della testata che rappresenta uno stato ACCESO, non un
        comando: stesso accento del tab attivo, cosi' "acceso" vuol dire la
@@ -175,7 +253,7 @@
       border-radius: 3px; padding: .05rem .35rem; font-size: .78rem;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
     }
-    .aiuto .gesto { color: #9a9a9a; font-size: .8rem; font-style: italic; }
+    .aiuto .gesto { color: #9a9a9a; font-size: .8rem; font-style: italic; display: inline-flex; align-items: center; gap: .3em; }
     .aiuto .sep { color: #666; margin: 0 .2em; }
     .aiuto p { margin: .8rem 0 0; color: #8f8f8f; font-size: .8rem; }
     /* Su un telefono due colonne non ci stanno: il tasto va sopra la
@@ -228,7 +306,7 @@
        z-index sotto .gelo (10), che deve restare sopra. */
     body.griglia .tab-pane.in-griglia.active::after {
       content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none;
-      border: 2px solid var(--acc); box-shadow: inset 0 0 12px rgba(53,227,164,.14);
+      border: 2px solid var(--acc); box-shadow: inset 0 0 12px rgba(79,174,140,.12);
     }
 
     /* --- adattamento allo schermo --- */
@@ -266,12 +344,19 @@
     body.schermo-medio   .barra-dx,
     body.schermo-piccolo .barra-dx { gap: .35rem; padding: 0 .35rem; }
     body.schermo-piccolo .tasto { min-width: 2.4rem; font-size: .9rem; }
+    body.schermo-medio   .chip { font-size: .74rem; }
+    body.schermo-piccolo .chip { font-size: .72rem; }
+    body.schermo-medio   .chip .etichetta,
+    body.schermo-piccolo .chip .etichetta { max-width: 8ch; }
   </style>
 </head>
 <body>
 
   <!-- Barra dei TAB -->
   <ul class="nav nav-tabs" id="terminalTabs" role="tablist"></ul>
+
+  <!-- I terminali liberi, quelli che non hanno un tab in testata: riempito da JS -->
+  <div class="scatola" id="scatola"></div>
 
   <!-- Contenuto iFrame per ogni terminale -->
   <div class="tab-content" id="terminalTabsContent"></div>
@@ -296,7 +381,15 @@
 @TERMINALS@
 
     var CHIAVE_NOMI   = 'terminal-dashboard-nomi';
-    var CHIAVE_ORDINE = 'terminal-dashboard-ordine';
+    // Quali terminali sono APERTI, e in che ordine stanno in testata. E' anche
+    // il rovescio del contenitore: libero = non e' in questo elenco. Sostituisce
+    // il vecchio 'terminal-dashboard-ordine', che elencava tutti i terminali
+    // perche' tutti avevano un tab; chi aggiorna riparte percio' con la testata
+    // vuota e tutto nel contenitore, che e' lo stato di partenza giusto. [RR]
+    var CHIAVE_APERTI = 'terminal-dashboard-aperti';
+    // Se il contenitore si vede o no ('si'/'no'): vale per questo browser,
+    // come la barra dei tasti, perche' e' spazio sullo schermo che hai davanti.
+    var CHIAVE_SCATOLA = 'terminal-dashboard-scatola';
     // Quando questo browser ha cambiato qualcosa l'ultima volta. Serve a
     // decidere chi ha ragione fra la cache e il server: senza, il profilo che
     // arriva dalla rete cancella quello che si e' appena fatto qui. [RR]
@@ -336,7 +429,7 @@
     var SEP = '\u241F';
     var TITOLO_RE = new RegExp('DH' + SEP + '([^' + SEP + ']*)' + SEP + '([^' + SEP + ']*)' + SEP);
     var MODI_TITOLO = ['T', 'W', 'no'];
-    var ETICHETTE_MODO = { T: '🏷 Titolo', W: '🏷 Comando', no: '🏷 Nomi miei' };
+    var ETICHETTE_MODO = { T: 'Titolo', W: 'Comando', no: 'Nomi miei' };
     var SPIEGA_MODO = {
       T: 'I tab prendono il titolo che scrive l\'applicazione (vim, ssh, top). Clicca per il comando in esecuzione.',
       W: 'I tab prendono il comando in esecuzione. Clicca per usare solo i nomi scritti da te.',
@@ -355,9 +448,12 @@
       scrivi(CHIAVE_NOMI, n);
       tocca();
     }
-    function salvaOrdine() {
-      scrivi(CHIAVE_ORDINE, pulsanti().map(function (b) { return Number(b.dataset.id); }));
+    // Aprire, chiudere e riordinare sono la stessa informazione: l'elenco dei
+    // tab in testata. Una sola funzione la salva e la manda su.
+    function salvaAperti() {
+      scrivi(CHIAVE_APERTI, ordineCorrente());
       tocca();
+      sincronizza();
     }
 
     // --- che nome porta un tab -----------------------------------------------
@@ -377,19 +473,22 @@
       if (!a) return '';
       return (modoTitolo === 'W' ? a.W : a.T) || '';
     }
+    // Il nome si scrive in due posti, perche' un terminale sta o in un tab o
+    // nel contenitore: sono lo stesso terminale, e devono dire lo stesso nome.
     function scriviEtichetta(id) {
-      var btn = document.getElementById('term' + id + '-tab');
-      var span = btn && btn.querySelector('.etichetta');
-      if (!span || span.isContentEditable) return;   // rinomina in corso: non si tocca
       var testo = nomeAuto(id) || nomeMio(id);
-      if (span.textContent !== testo) span.textContent = testo;
+      [tabDi(id), chipDi(id)].forEach(function (el) {
+        var span = el && el.querySelector('.etichetta');
+        if (!span || span.isContentEditable) return;   // rinomina in corso: non si tocca
+        if (span.textContent !== testo) span.textContent = testo;
+      });
     }
     function scriviEtichette() {
       TERMINALS.forEach(function (t) { scriviEtichetta(t.id); });
     }
 
     function mostraModoTitolo() {
-      bottoneTitoli.textContent = ETICHETTE_MODO[modoTitolo];
+      etichettaTitoli.textContent = ETICHETTE_MODO[modoTitolo];
       bottoneTitoli.title = SPIEGA_MODO[modoTitolo];
     }
     function commutaModoTitolo() {
@@ -430,57 +529,44 @@
     }
 
     // --- costruzione ---------------------------------------------------------
-    var nomi = leggi(CHIAVE_NOMI, {});
-    var ordine = leggi(CHIAVE_ORDINE, []);
-    if (!Array.isArray(ordine)) ordine = [];
-
-    // I terminali sconosciuti all'ordine salvato (es. dopo averne aggiunto uno
-    // a TERMINALS) finiscono in coda, per id.
-    var elenco = TERMINALS.slice().sort(function (a, b) {
-      var ia = ordine.indexOf(a.id); if (ia < 0) ia = Infinity;
-      var ib = ordine.indexOf(b.id); if (ib < 0) ib = Infinity;
-      return ia === ib ? a.id - b.id : ia - ib;
-    });
-
-    elenco.forEach(function (t, i) {
-      var li = document.createElement('li');
-      li.className = 'nav-item';
-      li.setAttribute('role', 'presentation');
-
-      var btn = document.createElement('button');
-      btn.className = 'nav-link' + (i === 0 ? ' active' : '');
-      btn.id = 'term' + t.id + '-tab';
-      btn.type = 'button';
-      btn.setAttribute('role', 'tab');
-      btn.setAttribute('data-bs-toggle', 'tab');
-      btn.setAttribute('data-bs-target', '#term' + t.id);
-      btn.title = 'Doppio click per rinominare, trascina per spostare';
-      btn.dataset.id = t.id;
-
-      var span = document.createElement('span');
-      span.className = 'etichetta';
-      span.textContent = nomi[t.id] || t.label;
-      btn.appendChild(span);
-
-      li.appendChild(btn);
-      tabs.appendChild(li);
-
+    // Un PANNELLO per ogni terminale, sempre e per tutti: e' un contenitore
+    // vuoto -- l'iframe, e quindi la websocket, nasce solo quando il terminale
+    // si apre -- e averlo gia' li' vuol dire che aprire e chiudere un tab non
+    // tocca mai la struttura dei pannelli, che e' l'unica cosa che non si puo'
+    // spostare senza perdere lo scrollback. [RR]
+    TERMINALS.forEach(function (t) {
       var pane = document.createElement('div');
-      pane.className = 'tab-pane fade' + (i === 0 ? ' show active' : '');
+      pane.className = 'tab-pane fade';
       pane.id = 'term' + t.id;
       pane.setAttribute('role', 'tabpanel');
       pane.dataset.src = '/term' + t.id + '/';
       panes.appendChild(pane);
     });
 
+    // Icona + etichetta dentro un bottone (o qualunque elemento): un'unica
+    // forma per tutti, cosi' nessun bottone resta col vecchio glifo Unicode
+    // mentre gli altri passano al font di icone. Ritorna lo <span> del testo,
+    // per chi deve aggiornarlo dopo (il conto dei liberi, lo stato di Congela)
+    // senza ricreare anche l'icona. [RR]
+    function conIcona(elemento, classeIcona, testo) {
+      var i = document.createElement('i');
+      i.className = 'bi ' + classeIcona;
+      i.setAttribute('aria-hidden', 'true');
+      elemento.appendChild(i);
+      var span = document.createElement('span');
+      span.textContent = testo;
+      elemento.appendChild(span);
+      return span;
+    }
+
     var barraDx = document.createElement('li');
     barraDx.className = 'barra-dx';
     var bottoneTastiera = document.createElement('button');
     bottoneTastiera.type = 'button';
     bottoneTastiera.className = 'bottone-gela';
-    // Non il solo glifo: '⌨' da solo, in mezzo a dieci tab, non si capisce
-    // che sia un interruttore ne' di cosa.
-    bottoneTastiera.textContent = '⌨ Tasti';
+    // Non la sola icona: da sola, in mezzo a dieci tab, non si capisce che
+    // sia un interruttore ne' di cosa.
+    conIcona(bottoneTastiera, 'bi-keyboard', 'Tasti');
 
     // Modalita' storia = copy-mode di tmux, quella di Ctrl-B [. Il bottone sta
     // in TESTATA e non nel footer, cosi' c'e' anche sul desktop dove la barra
@@ -489,7 +575,45 @@
     var bottoneStoria = document.createElement('button');
     bottoneStoria.type = 'button';
     bottoneStoria.className = 'bottone-gela';
-    bottoneStoria.textContent = '⇱ Storia';
+    conIcona(bottoneStoria, 'bi-clock-history', 'Storia');
+
+    // La status-bar di tmux, quella in fondo al TERMINALE (non a questa
+    // pagina): tmux gira con UN SOLO SERVER condiviso da tutti i terminali
+    // (vedi KillMode in ttyd@.service.tmpl), quindi il tasto vale per tutti
+    // insieme, non solo per quello davanti. Qui si manda solo il tasto giusto
+    // -- due bind dedicati in /etc/tmux-terminali.conf, cosi' non si digita
+    // un comando che lampeggerebbe sulla status-bar mentre la si spegne. Lo
+    // stato vero lo tiene tmux, che se lo ricorda da solo finche' il server
+    // vive; l'etichetta qui e' ottimistica e non si accorge di un cambio
+    // fatto da un altro dispositivo finche' non si preme di nuovo. [RR]
+    var CHIAVE_BARRA = 'terminal-dashboard-barra-tmux';
+    var barraTmuxVisibile = leggi(CHIAVE_BARRA, '') !== 'no';
+
+    var bottoneBarra = document.createElement('button');
+    bottoneBarra.type = 'button';
+    bottoneBarra.className = 'bottone-gela';
+    var etichettaBarra = conIcona(bottoneBarra, 'bi-layout-text-window-reverse', 'Barra tmux');
+
+    function mostraBarraTmux() {
+      bottoneBarra.classList.toggle('acceso', !barraTmuxVisibile);
+      bottoneBarra.setAttribute('aria-pressed', barraTmuxVisibile ? 'false' : 'true');
+      bottoneBarra.title = (barraTmuxVisibile ? 'Nasconde' : 'Mostra') +
+        ' la status-bar di tmux in fondo al terminale (vale per tutti i terminali)';
+    }
+    mostraBarraTmux();
+
+    bottoneBarra.addEventListener('click', function () {
+      var term = termDi(pannelloAttivo());
+      if (!term) {
+        etichettaBarra.textContent = 'nessun terminale davanti';
+        setTimeout(function () { etichettaBarra.textContent = 'Barra tmux'; }, 1500);
+        return;
+      }
+      barraTmuxVisibile = !barraTmuxVisibile;
+      scrivi(CHIAVE_BARRA, barraTmuxVisibile ? 'si' : 'no');
+      try { term.input(barraTmuxVisibile ? '\x02T' : '\x02S'); } catch (err) {}
+      mostraBarraTmux();
+    });
 
     // Dimensione dei caratteri del terminale, a mano. Sta accanto agli altri
     // per lo stesso motivo: serve dove lo schermo e' piccolo, ma va raggiunta
@@ -526,12 +650,12 @@
     var bottoneGriglia = document.createElement('button');
     bottoneGriglia.type = 'button';
     bottoneGriglia.className = 'bottone-gela';
-    bottoneGriglia.textContent = '⊞ Griglia';
+    var etichettaGriglia = conIcona(bottoneGriglia, 'bi-grid-3x3-gap', 'Griglia');
 
     var bottoneGela = document.createElement('button');
     bottoneGela.type = 'button';
     bottoneGela.className = 'bottone-gela';
-    bottoneGela.textContent = '❄ Congela';
+    var etichettaGela = conIcona(bottoneGela, 'bi-snow2', 'Congela');
     bottoneGela.title = 'Blocca l\'input e mostra il testo selezionabile (Ctrl+Alt+C)';
     // Le scorciatoie stavano in un rigo di testo qui in testata: lungo, e
     // nascosto proprio sugli schermi stretti dove servirebbe. Ora stanno nella
@@ -543,6 +667,7 @@
     var bottoneTitoli = document.createElement('button');
     bottoneTitoli.type = 'button';
     bottoneTitoli.className = 'bottone-gela';
+    var etichettaTitoli = conIcona(bottoneTitoli, 'bi-tag', '');
     // Qui e non lassu' con commutaModoTitolo(): il bottone nasce a questo
     // punto del file, e agganciarsi prima vuol dire agganciarsi a undefined.
     bottoneTitoli.addEventListener('click', commutaModoTitolo);
@@ -550,17 +675,94 @@
     var bottoneAiuto = document.createElement('button');
     bottoneAiuto.type = 'button';
     bottoneAiuto.className = 'bottone-gela';
-    bottoneAiuto.textContent = '? Aiuto';
+    conIcona(bottoneAiuto, 'bi-question-circle', 'Aiuto');
 
+    // Mostra e nasconde la fila dei terminali liberi. Porta il CONTO, non solo
+    // un glifo: nascosta la fila, e' l'unica cosa che dice che di terminali da
+    // usare ce ne sono ancora -- per esempio dopo che una shell e' morta e il
+    // suo tab si e' chiuso. [RR]
+    var bottoneScatola = document.createElement('button');
+    bottoneScatola.type = 'button';
+    bottoneScatola.className = 'bottone-gela';
+    var etichettaScatola = conIcona(bottoneScatola, 'bi-box-seam', '');
+
+    barraDx.appendChild(bottoneScatola);
     barraDx.appendChild(bottoneGiu);
     barraDx.appendChild(bottoneSu);
     barraDx.appendChild(bottoneTitoli);
     barraDx.appendChild(bottoneGriglia);
     barraDx.appendChild(bottoneTastiera);
     barraDx.appendChild(bottoneStoria);
+    barraDx.appendChild(bottoneBarra);
     barraDx.appendChild(bottoneGela);
     barraDx.appendChild(bottoneAiuto);
     tabs.appendChild(barraDx);
+
+    // --- tab: uno per ogni terminale APERTO ----------------------------------
+    // I tab nascono e muoiono: uno compare quando il terminale si apre dal
+    // contenitore e se ne va quando lo si chiude (o quando la shell muore).
+    // Il pannello invece resta sempre, ed e' li' che sta l'identita' del
+    // terminale: qui si crea e si butta soltanto la linguetta.
+    function tabDi(id)  { return document.getElementById('term' + id + '-tab'); }
+    function chipDi(id) { return document.getElementById('term' + id + '-box'); }
+
+    function creaTab(id) {
+      if (tabDi(id)) return;
+      var li = document.createElement('li');
+      li.className = 'nav-item';
+      li.setAttribute('role', 'presentation');
+
+      var btn = document.createElement('button');
+      btn.className = 'nav-link';
+      btn.id = 'term' + id + '-tab';
+      btn.type = 'button';
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('data-bs-toggle', 'tab');
+      btn.setAttribute('data-bs-target', '#term' + id);
+      btn.title = 'Doppio click per rinominare, trascina per spostare, \u2715 per chiudere';
+      btn.dataset.id = id;
+
+      var span = document.createElement('span');
+      span.className = 'etichetta';
+      btn.appendChild(span);
+
+      // Dentro il <button> del tab, quindi non puo' essere un secondo elemento
+      // interattivo: e' un bersaglio per il mouse, e per chi non lo usa la
+      // strada e' Ctrl+Alt+W (che sta nell'aiuto). Da qui aria-hidden, e il
+      // titolo del tab che nomina il \u2715 accanto agli altri gesti.
+      var x = document.createElement('span');
+      x.className = 'chiudi';
+      var xIcon = document.createElement('i');
+      xIcon.className = 'bi bi-x-lg';
+      x.appendChild(xIcon);
+      x.title = 'Chiudi il tab: il terminale torna fra i liberi (Ctrl+Alt+W)';
+      x.setAttribute('aria-hidden', 'true');
+      btn.appendChild(x);
+
+      li.appendChild(btn);
+      // sempre prima della barra dei bottoni, che e' l'ultima voce della fila
+      tabs.insertBefore(li, barraDx);
+      scriviEtichetta(id);
+    }
+
+    // All'avvio: i terminali che erano aperti, nell'ordine in cui erano. Senza
+    // niente di salvato la testata nasce vuota e sono tutti nel contenitore.
+    var apertiSalvati = leggi(CHIAVE_APERTI, []);
+    if (!Array.isArray(apertiSalvati)) apertiSalvati = [];
+    apertiSalvati.forEach(function (id) {
+      if (pannelloDi(Number(id))) creaTab(Number(id));
+    });
+
+    // Il primo tab e' quello davanti, e lo si accende a mano: bootstrap qui non
+    // servirebbe a niente (non c'e' ancora nessun tab da spegnere) e vorrebbe
+    // dire creare l'istanza prima che la pagina sia in piedi.
+    var primoTab = tabs.querySelector('.nav-link');
+    if (primoTab) {
+      primoTab.classList.add('active');
+      primoTab.setAttribute('aria-selected', 'true');
+      var primoPane = pannelloDi(Number(primoTab.dataset.id));
+      if (primoPane) primoPane.classList.add('show', 'active');
+    }
 
     // --- navigazione ---------------------------------------------------------
     // L'ordine dei tab e' modificabile, quindi la posizione va letta dal DOM
@@ -581,8 +783,24 @@
       bootstrap.Tab.getOrCreateInstance(b[i]).show();
     }
     function vaiPerId(id) {
-      var btn = document.getElementById('term' + id + '-tab');
+      var btn = tabDi(id);
       if (btn) bootstrap.Tab.getOrCreateInstance(btn).show();
+    }
+
+    // Il tab in QUELLA POSIZIONE della fila, contando da 1; lo 0 e' l'ultimo,
+    // quello piu' a destra -- con dieci terminali aperti e' il decimo, e la
+    // fila di tasti da 1 a 0 finisce per coprire esattamente la fila dei tab.
+    //
+    // La cifra segue quello che si VEDE, non l'id del terminale, ed e' un
+    // cambio voluto: adesso i tab nascono e muoiono (un terminale si apre dal
+    // contenitore, e si chiude quando la shell muore), quindi con la cifra
+    // legata all'id si premeva Alt+4 senza sapere se dietro ci fosse un tab.
+    // Con le posizioni la terza cifra e' sempre il terzo tab. [RR]
+    function tabInPosizione(cifra) {
+      var b = pulsanti();
+      if (!b.length) return null;
+      var n = Number(cifra);
+      return b[n === 0 ? b.length - 1 : n - 1] || null;
     }
 
     tabs.addEventListener('shown.bs.tab', function (e) {
@@ -598,6 +816,178 @@
       if (idsGriglia.length > 1) sostituisciCella(pane, e.relatedTarget);
       caricaPannello(pane);
       if (!inModifica) dagliIlFuoco(pane);
+    });
+
+    // --- il contenitore dei terminali liberi ---------------------------------
+    // I tab in testata sono i terminali IN USO; tutti gli altri stanno qui, e
+    // da qui si prendono con un click. Non c'e' un secondo elenco da tenere
+    // allineato: libero vuol dire "non ha un tab", e i chip si ridisegnano da
+    // zero -- sono al massimo N_TERM, costa niente e non puo' divergere.
+    //
+    // Cosa NON sa questa fila: se dietro a un terminale libero ci sia una
+    // sessione tmux con del lavoro dentro. Non e' una cosa che il browser possa
+    // sapere senza attaccarsi, e attaccarsi e' proprio cio' che si sta
+    // decidendo di fare. Il patto e' percio' un altro, e si tiene da se': un
+    // terminale sta fra i liberi finche' nessuno lo apre da questa dashboard, e
+    // ci torna appena la shell muore. Appena installato -- o dopo un riavvio
+    // del servizio, quando le sessioni sono tutte nuove -- sono tutti qui. [RR]
+    var scatola = document.getElementById('scatola');
+    var notaScatola = document.createElement('span');
+    notaScatola.className = 'scatola-nota';
+    scatola.appendChild(notaScatola);
+
+    var sceltaScatola = leggi(CHIAVE_SCATOLA, 'si');
+
+    function creaChip(id) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.id = 'term' + id + '-box';
+      b.dataset.id = id;
+      b.title = 'Apri questo terminale in un tab';
+      var span = document.createElement('span');
+      span.className = 'etichetta';
+      b.appendChild(span);
+      scatola.appendChild(b);
+      scriviEtichetta(id);
+    }
+
+    function disegnaScatola() {
+      var aperto = {};
+      pulsanti().forEach(function (b) { aperto[b.dataset.id] = 1; });
+
+      Array.prototype.slice.call(scatola.querySelectorAll('.chip'))
+        .forEach(function (c) { scatola.removeChild(c); });
+
+      // in ordine di id, non di apertura: un terminale libero sta sempre nello
+      // stesso posto della fila, e la mano se lo ricorda
+      var liberi = 0;
+      TERMINALS.forEach(function (t) {
+        if (aperto[t.id]) return;
+        liberi++;
+        creaChip(t.id);
+      });
+
+      var senzaTab = !pulsanti().length;
+      document.body.classList.toggle('senza-tab', senzaTab);
+      // Con la testata vuota la fila si vede comunque, che la si sia nascosta o
+      // no: e' l'unico modo per aprire un terminale, e non c'e' nient'altro da
+      // mostrare al suo posto.
+      var mostrata = liberi > 0 && (senzaTab || sceltaScatola !== 'no');
+      document.body.classList.toggle('con-scatola', mostrata);
+
+      notaScatola.textContent = senzaTab
+        ? 'Nessun terminale aperto: clicca quello che ti serve'
+        : 'Liberi';
+
+      bottoneScatola.style.display = liberi ? '' : 'none';
+      etichettaScatola.textContent = liberi + (liberi === 1 ? ' libero' : ' liberi');
+      bottoneScatola.classList.toggle('acceso', mostrata);
+      bottoneScatola.setAttribute('aria-pressed', mostrata ? 'true' : 'false');
+      bottoneScatola.title = liberi + (liberi === 1 ? ' terminale libero' : ' terminali liberi') +
+        ': ' + (mostrata ? 'nascondi' : 'mostra') + ' la fila in alto';
+      bottoneScatola.setAttribute('aria-label', bottoneScatola.title);
+    }
+
+    scatola.addEventListener('click', function (e) {
+      var b = e.target.closest('.chip');
+      if (b) apriTerminale(b.dataset.id);
+    });
+
+    bottoneScatola.addEventListener('click', function () {
+      sceltaScatola = (sceltaScatola === 'no') ? 'si' : 'no';
+      scrivi(CHIAVE_SCATOLA, sceltaScatola);   // senza tocca(): e' di questo browser
+      disegnaScatola();
+    });
+
+    // --- aprire e chiudere un terminale --------------------------------------
+    // Aprire: il tab entra in CODA alla fila, come l'ultimo arrivato, e diventa
+    // quello davanti. La coda e non l'ordine per id di proposito: la fila dei
+    // tab racconta cosi' l'ordine in cui hai preso i terminali, e da riordinare
+    // col trascinamento resta come sempre.
+    function apriTerminale(id) {
+      id = Number(id);
+      if (!pannelloDi(id)) return;
+      if (!tabDi(id)) {
+        creaTab(id);
+        disegnaScatola();
+        salvaAperti();
+      }
+      vaiPerId(id);        // e da qui parte shown.bs.tab: iframe, fuoco, cella
+      sistemaGriglia();    // un terminale in piu' puo' voler dire una cella in piu'
+    }
+
+    // Chiudere: via il tab e via l'IFRAME. L'iframe va tolto per forza, non e'
+    // pulizia: un pannello nascosto ma ancora attaccato resta un client tmux, e
+    // tmux dimensiona la finestra sul client piu' piccolo -- se lo si lasciasse
+    // li' strozzerebbe le celle degli altri per sempre.
+    // La SESSIONE tmux non si tocca: quello che gira dentro continua a girare, e
+    // riaprendo il terminale si ritrova con il suo scrollback (quello di tmux;
+    // quello di xterm.js muore con l'iframe, e non c'e' modo di evitarlo).
+    // Con `morto` la sessione non c'e' piu' davvero, e allora se ne va anche il
+    // nome: vedi dimenticaNome.
+    function chiudiTerminale(id, morto) {
+      id = Number(id);
+      var btn = tabDi(id);
+      if (!btn) return;
+      var pane = pannelloDi(id);
+
+      if (gelo && gelo.pane === pane) scongela();
+      // Rinomina in corso proprio su questo tab: il campo se ne andrebbe col
+      // nodo lasciando inModifica acceso, e con quello la tastiera non naviga
+      // piu'. Il blur chiude la rinomina per la sua strada.
+      var sp = btn.querySelector('.etichetta');
+      if (sp && sp.isContentEditable) sp.blur();
+
+      var prima = pulsanti(), posto = prima.indexOf(btn);
+      var eraAttivo = btn.classList.contains('active');
+
+      // L'istanza di bootstrap tiene un riferimento al tab e alla fila in cui
+      // si trova: buttata via qui, non resta appesa a un nodo che non c'e' piu'.
+      var ist = bootstrap.Tab.getInstance(btn);
+      if (ist) ist.dispose();
+      if (btn.parentElement) tabs.removeChild(btn.parentElement);
+
+      if (pane) {
+        pane.classList.remove('active', 'show', 'in-griglia');
+        var f = pane.querySelector('iframe');
+        if (f) pane.removeChild(f);
+      }
+      if (morto) dimenticaNome(id);
+
+      var inCella = idsGriglia.indexOf(id);
+      if (inCella >= 0) idsGriglia.splice(inCella, 1);
+
+      disegnaScatola();
+      salvaAperti();
+
+      // Davanti passa chi ha preso il posto lasciato libero, o l'ultimo se si
+      // chiudeva il tab in coda. Solo se davanti c'era proprio questo: chiudere
+      // un tab di fondo non deve spostare quello che stai guardando.
+      var restano = pulsanti();
+      if (eraAttivo && restano.length) vaiA(Math.min(posto, restano.length - 1));
+      sistemaGriglia();
+    }
+
+    tabs.addEventListener('click', function (e) {
+      var x = e.target.closest('.chiudi');
+      if (!x) return;
+      e.preventDefault();
+      // Senza questo il click arriva al gestore di bootstrap su document, che
+      // aprirebbe il tab che si sta chiudendo.
+      e.stopPropagation();
+      var btn = x.closest('.nav-link');
+      if (btn) chiudiTerminale(btn.dataset.id);
+    });
+
+    // Terzo tasto: e' il gesto con cui si chiude una linguetta in qualunque
+    // browser, e su un mouse e' piu' comodo che centrare il \u2715.
+    tabs.addEventListener('auxclick', function (e) {
+      if (e.button !== 1) return;
+      var btn = e.target.closest('.nav-link');
+      if (!btn) return;
+      e.preventDefault();
+      chiudiTerminale(btn.dataset.id);
     });
 
     // --- accesso a xterm.js --------------------------------------------------
@@ -671,8 +1061,8 @@
       var pane = pannelloAttivo();
       var term = termDi(pane);
       if (!term) {
-        bottoneGela.textContent = '❄ terminale non pronto';
-        setTimeout(function () { bottoneGela.textContent = '❄ Congela'; }, 1500);
+        etichettaGela.textContent = 'terminale non pronto';
+        setTimeout(function () { etichettaGela.textContent = 'Congela'; }, 1500);
         return;
       }
 
@@ -687,7 +1077,7 @@
       barra.className = 'gelo-barra';
 
       var titolo = document.createElement('strong');
-      titolo.textContent = '❄ Congelato';
+      conIcona(titolo, 'bi-snow2', 'Congelato');
 
       var chk = document.createElement('input');
       chk.type = 'checkbox';
@@ -739,7 +1129,9 @@
       });
       bChiudi.addEventListener('click', scongela);
 
-      bottoneGela.textContent = '❄ Riprendi';
+      etichettaGela.textContent = 'Riprendi';
+      bottoneGela.classList.add('acceso');
+      bottoneGela.setAttribute('aria-pressed', 'true');
     }
 
     function scongela() {
@@ -752,7 +1144,9 @@
       // Il <pre> non c'e' piu': la selezione che lo puntava va chiusa a mano,
       // o resta un range appeso a un nodo staccato dal documento.
       window.getSelection().removeAllRanges();
-      bottoneGela.textContent = '❄ Congela';
+      etichettaGela.textContent = 'Congela';
+      bottoneGela.classList.remove('acceso');
+      bottoneGela.setAttribute('aria-pressed', 'false');
       dagliIlFuoco(g.pane);
     }
 
@@ -767,6 +1161,7 @@
 
     tabs.addEventListener('pointerdown', function (e) {
       if (inModifica || e.button !== 0) return;
+      if (e.target.closest('.chiudi')) return;   // il \u2715 chiude, non trascina
       var btn = e.target.closest('.nav-link');
       if (!btn) return;
       preso = btn;
@@ -806,9 +1201,8 @@
       // Le celle stanno nell'ordine dei tab: se l'ordine e' cambiato, la
       // griglia va ridisposta (i pannelli non si toccano, cambia solo order).
       if (trascinando) {
-        salvaOrdine();
+        salvaAperti();
         if (idsGriglia.length > 1) applicaGriglia(idsGriglia);
-        sincronizza();
       }
       preso = null;
       trascinando = false;
@@ -877,16 +1271,6 @@
       span.addEventListener('blur', onBlur);
     }
 
-    // Rinomina senza mouse il terminale con quell'id, che sia davanti o no: e'
-    // il gemello di Alt+cifra, che allo stesso id ci salta. Il doppio click
-    // resta, ma da tastiera non c'era modo di arrivarci, e su un portatile
-    // senza mouse rinominare voleva dire prendere il trackpad e centrare un
-    // tab. [RR]
-    function rinominaPerId(id) {
-      var btn = document.getElementById('term' + id + '-tab');
-      if (btn) rinomina(btn);
-    }
-
     tabs.addEventListener('dblclick', function (e) {
       var btn = e.target.closest('.nav-link');
       if (!btn) return;
@@ -913,6 +1297,7 @@
         agganciaTasti(f);
         agganciaCella(f, pane);
         agganciaOverlay(f, pane.id.slice(4));
+        agganciaMorte(pane, pane.id.slice(4), 100);
         agganciaTitolo(f, pane.id.slice(4));
         attendiTerminale(pane, 100);
         if (pane.classList.contains('active') && !inModifica && !gelo) dagliIlFuoco(pane);
@@ -959,7 +1344,7 @@
       return pulsanti().map(function (b) { return Number(b.dataset.id); });
     }
 
-    // Debounce: trascinando i tab salvaOrdine parte a ogni rilascio, e senza
+    // Debounce: trascinando i tab salvaAperti parte a ogni rilascio, e senza
     // attesa si manderebbe una richiesta per ogni aggiustamento.
     function sincronizza(subito) {
       if (!urlProfilo) return;
@@ -967,7 +1352,7 @@
       function manda() {
         attesaPut = null;
         var corpo = JSON.stringify({
-          nomi: leggi(CHIAVE_NOMI, {}), ordine: ordineCorrente(), griglia: statoGriglia(),
+          nomi: leggi(CHIAVE_NOMI, {}), aperti: ordineCorrente(), griglia: statoGriglia(),
           agg: Number(leggi(CHIAVE_AGG, 0)) || 0
         });
         // keepalive: la PUT deve partire anche quando la manda mandaSubito()
@@ -1013,22 +1398,30 @@
         scriviEtichette();   // e dove il terminale ha un nome suo, resta quello
       }
 
-      if (Array.isArray(p.ordine)) {
-        // Solo id che esistono davvero, e in coda quelli che il profilo non
-        // conosce (un terminale aggiunto dopo), come fa la costruzione
-        // iniziale. Riordinare sposta i <li>: gli iframe non si toccano,
-        // quindi ne' la sessione ne' lo scrollback ne soffrono.
+      if (Array.isArray(p.aperti)) {
+        // Quali terminali sono aperti, e in che ordine. Solo id che esistono
+        // davvero; quelli che il profilo non nomina NON si aggiungono in coda
+        // come faceva l'ordine di prima -- un tab in piu' vorrebbe dire
+        // attaccarsi a una sessione che nessuno ha chiesto di aprire.
         var visti = {}, finale = [];
-        p.ordine.forEach(function (id) {
+        p.aperti.forEach(function (id) {
           id = Number(id);
-          if (!visti[id] && document.getElementById('term' + id + '-tab')) { visti[id] = 1; finale.push(id); }
+          if (!visti[id] && pannelloDi(id)) { visti[id] = 1; finale.push(id); }
         });
-        TERMINALS.forEach(function (t) { if (!visti[t.id]) finale.push(t.id); });
+        // Prima si chiude quello che il profilo non ha, poi si apre e si mette
+        // in fila quello che ha. Riordinare sposta i <li>: gli iframe non si
+        // toccano, quindi ne' la sessione ne' lo scrollback ne soffrono.
+        ordineCorrente().forEach(function (id) { if (!visti[id]) chiudiTerminale(id); });
         finale.forEach(function (id) {
-          var btn = document.getElementById('term' + id + '-tab');
+          if (!tabDi(id)) creaTab(id);
+          var btn = tabDi(id);
           if (btn) tabs.insertBefore(btn.parentElement, barraDx);
         });
-        scrivi(CHIAVE_ORDINE, finale);
+        scrivi(CHIAVE_APERTI, finale);
+        // Se in testata non c'era niente -- primo accesso da questo browser, o
+        // tutti i tab chiusi -- davanti passa il primo della fila.
+        if (finale.length && !tabs.querySelector('.nav-link.active')) vaiA(0);
+        disegnaScatola();
       }
 
       // La griglia per ultima: le celle stanno nell'ordine dei tab, che il
@@ -1040,8 +1433,7 @@
         celleVolute = GRIGLIE.some(function (g) { return g.celle === n; }) ? n : 1;
         if (Array.isArray(p.griglia.ids)) idsGriglia = p.griglia.ids.map(Number);
       }
-      var eff = celleEffettive();
-      applicaGriglia(eff > 1 ? ripulisci(idsGriglia, eff) : []);
+      sistemaGriglia();
       scrivi(CHIAVE_GRIGLIA, statoGriglia());
 
       // Adesso questo browser ha esattamente cio' che ha il server: la data
@@ -1268,9 +1660,13 @@
     // profilo e' condiviso fra browser, e il telefono non deve buttare la
     // griglia scelta sul portatile. Se lo spazio basta per meno celle di
     // quelle chieste si usa il formato piu' grande che ci sta. [RR]
+    // Il secondo limite sono i terminali APERTI: le celle si riempiono con i
+    // tab in testata, e con tre tab aperti non esiste un formato da tre. Senza
+    // questo la griglia si accendeva con meno celle di quelle dichiarate e il
+    // CSS restava senza template -- tutto in una colonna. [RR]
     function celleEffettive() {
-      var d = disponibili(), n = 1;
-      for (var i = 0; i < d.length; i++) if (d[i] <= celleVolute) n = d[i];
+      var d = disponibili(), quanti = pulsanti().length, n = 1;
+      for (var i = 0; i < d.length; i++) if (d[i] <= celleVolute && d[i] <= quanti) n = d[i];
       return n;
     }
 
@@ -1298,7 +1694,10 @@
       var visti = {}, out = [];
       (Array.isArray(ids) ? ids : []).forEach(function (id) {
         id = Number(id);
-        if (!visti[id] && pannelloDi(id) && out.length < n) { visti[id] = 1; out.push(id); }
+        // tabDi e non pannelloDi: i pannelli ci sono per tutti, ma in cella
+        // puo' andare solo un terminale aperto -- una cella senza tab non si
+        // potrebbe piu' ne' scegliere ne' chiudere
+        if (!visti[id] && tabDi(id) && out.length < n) { visti[id] = 1; out.push(id); }
       });
       insiemeIniziale(n).forEach(function (id) {
         if (!visti[id] && out.length < n) { visti[id] = 1; out.push(id); }
@@ -1341,6 +1740,15 @@
       // browser ha disposto la griglia -- quindi non adesso, ma subito dopo.
       setTimeout(adattaTutto, 0);
       setTimeout(adattaTutto, 200);
+    }
+
+    // Il formato che tocca adesso, applicato. Ci si passa da ogni parte --
+    // all'avvio, dal bottone, quando lo schermo cambia misura, dal profilo e
+    // quando un terminale si apre o si chiude -- perche' sono tutte la stessa
+    // domanda: quante celle ci stanno, e chi ci va.
+    function sistemaGriglia() {
+      var eff = celleEffettive();
+      applicaGriglia(eff > 1 ? ripulisci(idsGriglia, eff) : []);
     }
 
     // La regola unica, applicata dove i tab cambiano davvero: shown.bs.tab
@@ -1388,8 +1796,7 @@
 
     function apriGriglia(n) {
       celleVolute = n;
-      var eff = celleEffettive();
-      applicaGriglia(eff > 1 ? ripulisci(idsGriglia, eff) : []);
+      sistemaGriglia();
       salvaGriglia();
     }
 
@@ -1407,8 +1814,11 @@
     function etichetteGriglia() {
       var scelte = disponibili();
       var n = celleAdesso();
-      bottoneGriglia.style.display = scelte.length ? '' : 'none';
-      bottoneGriglia.textContent = n > 1 ? '⊞ ' + n : '⊞ Griglia';
+      // Con un solo terminale aperto non c'e' niente da affiancare: il bottone
+      // se ne va come dove lo schermo e' troppo piccolo, invece di restare li'
+      // a non fare niente quando lo si preme.
+      bottoneGriglia.style.display = (scelte.length && pulsanti().length > 1) ? '' : 'none';
+      etichettaGriglia.textContent = n > 1 ? String(n) : 'Griglia';
       bottoneGriglia.classList.toggle('acceso', n > 1);
       bottoneGriglia.setAttribute('aria-pressed', n > 1 ? 'true' : 'false');
       bottoneGriglia.title = 'Terminali insieme: ' + [1].concat(scelte).join(' → ') +
@@ -1424,9 +1834,8 @@
       try {
         var mq = window.matchMedia(g.query);
         var f = function () {
-          var eff = celleEffettive();
-          if (eff === celleAdesso()) { etichetteGriglia(); return; }
-          applicaGriglia(eff > 1 ? ripulisci(idsGriglia, eff) : []);
+          if (celleEffettive() === celleAdesso()) { etichetteGriglia(); return; }
+          sistemaGriglia();
         };
         if (mq.addEventListener) mq.addEventListener('change', f);
         else if (mq.addListener) mq.addListener(f);   // Safari vecchi
@@ -1443,8 +1852,7 @@
         celleVolute = GRIGLIE.some(function (g) { return g.celle === n; }) ? n : 1;
         if (Array.isArray(salvato.ids)) idsGriglia = salvato.ids.map(Number);
       }
-      var eff = celleEffettive();
-      applicaGriglia(eff > 1 ? ripulisci(idsGriglia, eff) : []);
+      sistemaGriglia();
     }
 
     // --- modalita' storia (copy-mode di tmux) --------------------------------
@@ -1579,7 +1987,7 @@
 
     var spia = document.createElement('span');
     spia.className = 'spia';
-    spia.textContent = '⇱ storia · le frecce scorrono';
+    conIcona(spia, 'bi-clock-history', 'storia · le frecce scorrono');
     tastiera.appendChild(spia);
 
     TASTI.forEach(function (t) {
@@ -1624,6 +2032,7 @@
       bottoneTastiera.title = (mostra ? 'Nascondi' : 'Mostra') +
         ' i tasti Tab, Esc, frecce, PagSu/PagGiu';
       bottoneTastiera.setAttribute('aria-pressed', mostra ? 'true' : 'false');
+      bottoneTastiera.classList.toggle('acceso', mostra);
     }
     var sceltaTastiera = leggi(CHIAVE_TASTIERA, '');
     var conIlDito = false;
@@ -1645,13 +2054,20 @@
     // leggerlo. Qui invece ci sta tutto, anche i gesti col mouse e i bottoni,
     // e su un telefono si legge come sul portatile. [RR]
     var AIUTO = [
-      { titolo: 'Terminali', voci: [
+      { titolo: 'I terminali liberi', voci: [
+        { gesto: 'clic su un terminale della fila', che: 'lo apre: il tab compare in coda alla testata e diventa quello davanti' },
+        { gesto: 'exit o Ctrl-D nel terminale', che: 'la shell muore, il tab si chiude e il terminale torna in fila col nome di serie' },
+        { gesto: 'n liberi', icona: 'bi-box-seam', che: 'mostra e nasconde la fila; il numero dice quanti terminali sono liberi. Con la testata vuota la fila si vede comunque' }
+      ] },
+      { titolo: 'Terminali aperti', voci: [
         { tasti: ['Shift+←', 'Shift+→'], che: 'terminale precedente e successivo, nell\'ordine dei tab' },
-        { tasti: ['Alt+0', 'Alt+9'], che: 'salta al terminale con quell\'id, ovunque sia finito' },
-        { tasti: ['Ctrl+0', 'Ctrl+9'], che: 'rinomina il terminale con quell\'id: Invio conferma, Esc annulla, vuoto rimette il nome di serie' },
+        { tasti: ['Alt+1', 'Alt+9'], che: 'va al tab in quella POSIZIONE in testata; Alt+0 all\'ultimo, quello piu\' a destra' },
+        { tasti: ['Ctrl+1', 'Ctrl+9'], che: 'rinomina il tab in quella posizione, Ctrl+0 l\'ultimo: Invio conferma, Esc annulla, vuoto rimette il nome di serie' },
+        { tasti: ['Ctrl+Alt+W'], che: 'chiude il tab davanti: il terminale torna fra i liberi, e quello che gira dentro continua a girare' },
         { gesto: 'doppio click sul tab', che: 'rinomina quel tab, come Ctrl+cifra' },
+        { gesto: 'sul tab, o terzo tasto', icona: 'bi-x-lg', che: 'chiude il tab, come Ctrl+Alt+W' },
         { gesto: 'trascina il tab', che: 'cambia l\'ordine dei terminali' },
-        { tasti: ['Ctrl+Alt+N'], che: 'nome dei tab: titolo dell\'applicazione, comando in esecuzione, solo i nomi scritti da te (come il bottone 🏷)' }
+        { tasti: ['Ctrl+Alt+N'], che: 'nome dei tab: titolo dell\'applicazione, comando in esecuzione, solo i nomi scritti da te (come il bottone col cartellino)' }
       ] },
       { titolo: 'Piu\' terminali insieme', voci: [
         { tasti: ['Ctrl+Alt+G'], che: 'uno solo → 2 → 4 → 6, fra i formati che lo schermo regge' },
@@ -1664,12 +2080,14 @@
         { tasti: ['Esc'], che: 'a terminale congelato, riprende' }
       ] },
       { titolo: 'Bottoni in testata', voci: [
+        { gesto: 'n liberi', icona: 'bi-box-seam', che: 'la fila dei terminali liberi, quelli senza un tab; il bottone sparisce quando sono tutti aperti' },
         { gesto: 'A›a  a›A', che: 'caratteri piu\' piccoli e piu\' grandi; la scelta batte l\'automatico e resta su questo browser' },
-        { gesto: '🏷 Titolo / Comando / Nomi miei', che: 'da dove viene il nome dei tab. L\'automatico ha la precedenza sui nomi scritti a mano, che restano salvati e tornano appena il terminale non ha un titolo suo' },
-        { gesto: '⊞ Griglia', che: 'quanti terminali a schermo; compare solo dove c\'e\' spazio' },
-        { gesto: '⌨ Tasti', che: 'la barra con Esc, Tab, frecce e PagSu/PagGiu, per le tastiere che non li hanno' },
-        { gesto: '⇱ Storia', che: 'entra e esce dalla copy-mode di tmux (Ctrl-B [): li\' le frecce scorrono lo scrollback' },
-        { gesto: '❄ Congela', che: 'come Ctrl+Alt+C' }
+        { gesto: 'Titolo / Comando / Nomi miei', icona: 'bi-tag', che: 'da dove viene il nome dei tab. L\'automatico ha la precedenza sui nomi scritti a mano, che restano salvati e tornano appena il terminale non ha un titolo suo' },
+        { gesto: 'Griglia', icona: 'bi-grid-3x3-gap', che: 'quanti terminali a schermo. Le celle si riempiono con i tab in testata, percio\' compare dove c\'e\' spazio e da due terminali aperti in su' },
+        { gesto: 'Tasti', icona: 'bi-keyboard', che: 'la barra con Esc, Tab, frecce e PagSu/PagGiu, per le tastiere che non li hanno' },
+        { gesto: 'Storia', icona: 'bi-clock-history', che: 'entra e esce dalla copy-mode di tmux (Ctrl-B [): li\' le frecce scorrono lo scrollback' },
+        { gesto: 'Barra tmux', icona: 'bi-layout-text-window-reverse', che: 'mostra e nasconde la status-bar di tmux in fondo al terminale davanti; vale per tutti i terminali insieme, perche\' condividono lo stesso server tmux' },
+        { gesto: 'Congela', icona: 'bi-snow2', che: 'come Ctrl+Alt+C' }
       ] },
       { titolo: 'Questa finestra', voci: [
         { tasti: ['Ctrl+H'], che: 'apre e chiude questo elenco' },
@@ -1724,7 +2142,8 @@
           } else {
             var g = document.createElement('span');
             g.className = 'gesto';
-            g.textContent = v.gesto;
+            if (v.icona) conIcona(g, v.icona, v.gesto);
+            else g.textContent = v.gesto;
             dt.appendChild(g);
           }
           var dd = document.createElement('dd');
@@ -1736,8 +2155,8 @@
       });
 
       var coda = document.createElement('p');
-      coda.textContent = 'Nomi e ordine dei tab, e la griglia, seguono l\'identita\' del ' +
-        'certificato: li ritrovi cambiando browser.';
+      coda.textContent = 'Nomi dei tab, quali terminali sono aperti e in che ordine, e la ' +
+        'griglia, seguono l\'identita\' del certificato: li ritrovi cambiando browser.';
       corpo.appendChild(coda);
 
       // La licenza sta qui dentro e non in testata: e' una cosa che si legge
@@ -1913,6 +2332,17 @@
         return;
       }
 
+      // Ctrl+Alt+W chiude il tab che sta davanti: il terminale torna fra i
+      // liberi e la sua sessione tmux continua a girare. E' la via da tastiera
+      // al \u2715 sul tab; Ctrl+W non si puo' usare, il browser se lo prende per
+      // chiudere la scheda e alla pagina non arriva.
+      if (e.ctrlKey && e.altKey && !e.metaKey && (e.key === 'w' || e.key === 'W')) {
+        e.preventDefault(); e.stopPropagation();
+        var davanti = pannelloAttivo();
+        if (davanti) chiudiTerminale(idDi(davanti));
+        return;
+      }
+
       // Ctrl+Ins copia la selezione fatta dentro xterm: ttyd non ha nessuna
       // scorciatoia per copiare, si affida solo all'auto-copia su selezione
       // che il browser blocca quando non e' dentro un gesto utente.
@@ -1922,22 +2352,22 @@
         if (sel) {
           e.preventDefault(); e.stopPropagation();
           copiaTesto(sel, function (ok) {
-            bottoneGela.textContent = ok ? '✓ copiato' : '✗ non riesco';
-            setTimeout(function () { bottoneGela.textContent = '❄ Congela'; }, 1200);
+            etichettaGela.textContent = ok ? 'copiato' : 'non riesco';
+            setTimeout(function () { etichettaGela.textContent = 'Congela'; }, 1200);
           });
         }
         return;
       }
 
       if (e.ctrlKey || e.altKey || e.metaKey) {
-        // Alt+0..9 salta al terminale con quell'id, qualunque sia la posizione.
+        // Alt+1..9 va al tab in quella posizione, Alt+0 all'ultimo.
         if (e.altKey && !e.ctrlKey && !e.metaKey && e.key >= '0' && e.key <= '9') {
-          if (document.getElementById('term' + e.key + '-tab')) {
-            e.preventDefault(); e.stopPropagation(); vaiPerId(e.key);
-          }
+          var vai = tabInPosizione(e.key);
+          if (vai) { e.preventDefault(); e.stopPropagation(); vaiPerId(vai.dataset.id); }
         }
-        // Ctrl+0..9 rinomina QUEL terminale: stesso id di Alt+cifra, cosi' la
-        // cifra vuol dire sempre la stessa cosa e cambia solo il modificatore.
+        // Ctrl+1..9 rinomina il tab in quella posizione, Ctrl+0 l'ultimo:
+        // stessa cifra di Alt, cosi' vuol dire sempre lo stesso tab e cambia
+        // solo il modificatore.
         //
         // Ctrl+T, che sarebbe stato il preferito per la rinomina, non e' una
         // scelta possibile: e' fra le scorciatoie che il browser tiene per se'
@@ -1948,9 +2378,8 @@
         // di controllo che quasi nessuno usa (Ctrl+2 e' NUL, ^@, che serve in
         // emacs per set-mark). [RR]
         if (e.ctrlKey && !e.altKey && !e.metaKey && e.key >= '0' && e.key <= '9') {
-          if (document.getElementById('term' + e.key + '-tab')) {
-            e.preventDefault(); e.stopPropagation(); rinominaPerId(e.key);
-          }
+          var rin = tabInPosizione(e.key);
+          if (rin) { e.preventDefault(); e.stopPropagation(); rinomina(rin); }
         }
         return;
       }
@@ -1991,53 +2420,144 @@
       return !!n && n.nodeType === 1 && n.tagName === 'DIV' && !n.className;
     }
 
-    // Il nome del tab descrive cio' che gira nel terminale. Se la sessione
-    // muore (exit dalla shell: `tmux new-session -A` al riaggancio ne crea una
-    // NUOVA, non riattacca quella di prima) l'etichetta e' bugiarda, quindi
-    // torna al default e la preferenza salvata viene cancellata. [RR]
+    // --- quando la shell muore ----------------------------------------------
+    // `exit` o Ctrl-D chiudono la shell, la sessione tmux finisce e dietro a
+    // quel tab non c'e' piu' niente: il tab si chiude e il terminale torna fra
+    // i liberi. Il nome se ne va con lui -- descriveva cio' che girava, e al
+    // riaggancio `tmux new-session -A` crea una sessione NUOVA, non riattacca
+    // quella di prima.
     //
-    // Questo azzeramento resta LOCALE, di proposito: non chiama sincronizza().
-    // Col profilo condiviso, una websocket caduta -- un riavvio di nginx, il
-    // telefono che perde campo -- cancellerebbe il nome su tutti i browser di
-    // quella identita'. Al server salgono solo le rinomine volute. [RR]
-    // QUANDO NON AZZERARE. "Connection Closed" non vuol dire sempre che la
-    // sessione e' morta, e distinguere non e' un dettaglio: qui si cancella
-    // una cosa scritta a mano dall'utente.
+    // COME SI SA CHE E' MORTA, e non che e' solo caduta la linea. ttyd scrive
+    // "Connection Closed" in tutti e due i casi, e distinguere non e' un
+    // dettaglio: qui si chiude un tab e si cancella un nome scritto a mano.
+    // Si guarda percio' cio' che il CLIENT tmux lascia scritto sullo schermo
+    // prima di uscire: quando la sessione finisce, esce dallo schermo
+    // alternativo, pulisce e stampa
     //
-    // Ricaricando la pagina le websocket cadono per forza, e ttyd fa in tempo
-    // a scriverlo prima che la pagina se ne vada: il nome veniva azzerato
-    // proprio durante l'F5, ed era per questo che non sopravviveva a un
-    // ricaricamento -- il difetto e' stato trovato guardando il profilo sul
-    // server, 73 byte con "nomi":{} scritti da PUT tutte andate a buon fine.
+    //     [exited]
     //
-    // Stessa cosa quando il telefono si blocca o si passa a un'altra
-    // applicazione: al ritorno si vede la coda di QUELLA disconnessione, non
-    // un exit, quindi per qualche secondo dopo che la pagina torna a schermo
-    // non si azzera niente. [RR]
-    var inUscita = false, tornata = 0, GRAZIA = 4000;
+    // Verificato su tmux 3.2a registrando il pty di un client vero, che e' lo
+    // stesso modo con cui si e' trovato l'indicatore della copy-mode. Una
+    // linea caduta invece non lo stampa: dall'altra parte il processo viene
+    // ucciso, non esce, e lo schermo resta all'ultimo fotogramma. Quindi il
+    // tab e il nome restano dove sono e ttyd si riaggancia da se'.
+    //
+    // Questo rende inutili le due guardie che c'erano prima -- non azzerare
+    // mentre la pagina non e' a schermo, e per qualche secondo dopo che ci e'
+    // tornata: servivano perche' l'unico indizio era "Connection Closed", che
+    // al ritorno da un telefono bloccato e' la coda della disconnessione di
+    // sistema e non un exit. Adesso quel caso lo esclude il controllo stesso,
+    // che li' non trova nessun [exited]. Resta `inUscita`, e non per il nome:
+    // durante un F5 le websocket cadono per forza, e chiudere dei tab mentre
+    // la pagina se ne va vorrebbe dire salvare un elenco di aperti mutilato --
+    // si ricaricherebbe con meta' terminali finiti nel contenitore. [RR]
+    var inUscita = false;
     window.addEventListener('pagehide', function () { inUscita = true; });
     window.addEventListener('beforeunload', function () { inUscita = true; });
-    document.addEventListener('visibilitychange', function () {
-      if (!document.hidden) tornata = Date.now();
-    });
 
-    function reimpostaNome(id) {
-      if (inUscita || document.hidden || (tornata && Date.now() - tornata < GRAZIA)) return;
-      var btn = document.getElementById('term' + id + '-tab');
-      if (!btn) return;
-      var span = btn.querySelector('.etichetta');
-      if (!span || span.isContentEditable) return;   // rinomina in corso: non si tocca
+    var USCITO = /^\[exited\]$/;
 
-      // Anche il nome automatico se ne va: la sessione dietro non c'e' piu',
-      // quindi quel titolo racconta un'applicazione che non gira. Senza
-      // questo il tab resterebbe "vim: relazione.txt" su un terminale morto.
+    // Il [exited] sta sulla schermata visibile, non nello scrollback: dopo il
+    // clear e' la prima riga. Si guardano tutte le righe a schermo perche' il
+    // cursore, al momento dell'uscita, non e' detto che fosse in cima.
+    function sessioneFinita(term) {
+      try {
+        var buf = term.buffer.active;
+        // Con un client tmux attaccato lo schermo e' quello alternato: tutto
+        // cio' che scorre nel terminale sta li'. Il [exited] lo stampa il
+        // client DOPO esserne uscito, cioe' sullo schermo normale. Chiedere il
+        // buffer normale costa niente e toglie di mezzo i falsi allarmi -- un
+        // `cat` di un log che contiene [exited] chiuderebbe il tab. [RR]
+        if (buf.type !== 'normal') return false;
+        for (var i = 0; i < term.rows; i++) {
+          var linea = buf.getLine(buf.viewportY + i);
+          if (linea && USCITO.test(linea.translateToString(true).trim())) return true;
+        }
+        return false;
+      } catch (err) { return false; }
+    }
+
+    // L'avviso di ttyd arriva quando la websocket si chiude, e le ultime righe
+    // possono essere ancora in coda dentro xterm.js, che scrive in modo
+    // asincrono: si guarda piu' volte per un paio di secondi invece di
+    // indovinare un ritardo. Un controllo per terminale alla volta, o ogni
+    // riscrittura dell'avviso ("Reconnecting...", "Press <invio> to
+    // Reconnect") ne farebbe partire un altro.
+    var controlli = {};
+
+    function controllaMorte(id, giri) {
+      if (inUscita || !tabDi(id)) { delete controlli[id]; return; }
+      var term = termDi(pannelloDi(id));
+      if (term && sessioneFinita(term)) {
+        delete controlli[id];
+        chiudiTerminale(id, true);
+        return;
+      }
+      if (giri > 0) setTimeout(function () { controllaMorte(id, giri - 1); }, 150);
+      else delete controlli[id];
+    }
+
+    // --- prendere il [exited] al volo ---------------------------------------
+    // Cercarlo quando arriva l'avviso di ttyd e' tardi: a schermo ci resta
+    // pochissimo. Alla chiusura della websocket il client di ttyd si riaggancia
+    // DA SOLO -- il codice di chiusura e' 1006, non 1000, e li' scatta il suo
+    // doReconnect -- e appena riaperto fa `terminal.reset()`; subito dopo il
+    // nuovo client tmux entra nello schermo alternato. Da quel momento il
+    // [exited] non c'e' piu' da nessuna parte, e chi lo cerca trova soltanto
+    // una sessione nuova di zecca.
+    //
+    // Misurato sulla websocket di ttyd: il frame con [exited] arriva 0,4 ms
+    // prima della chiusura. La ricerca lanciata dall'avviso parte percio'
+    // mentre xterm ha ancora quel pezzo in coda (scrive in modo asincrono), e i
+    // tentativi successivi corrono contro il riaggancio, che e' un giro di
+    // rete: chi arriva primo cambia di volta in volta. E' questa la ragione per
+    // cui con Ctrl-D il tab restava aperto e con `exit` si chiudeva, pur
+    // essendo i byte in arrivo gli stessi -- verificato registrando le due
+    // uscite sulla websocket: identiche fino all'ultimo byte.
+    //
+    // Agganciandosi alla scrittura di xterm il controllo avviene nell'istante
+    // in cui il [exited] entra nel buffer, prima che qualcuno possa cancellarlo,
+    // e la gara non si corre piu'. Il controllo sull'avviso resta come rete di
+    // sicurezza per gli xterm.js senza questi eventi. [RR]
+    function agganciaMorte(pane, id, quanti) {
+      var term = termDi(pane);
+      if (!term) {
+        if (quanti > 0) setTimeout(function () { agganciaMorte(pane, id, quanti - 1); }, 100);
+        return;
+      }
+      // Il riaggancio riusa lo stesso oggetto Terminal: l'ascoltatore si mette
+      // una volta sola e vale anche per le sessioni che verranno dopo.
+      if (term.__morteAgganciata) return;
+      term.__morteAgganciata = true;
+
+      function guarda() {
+        if (inUscita || !tabDi(id) || !sessioneFinita(term)) return;
+        // Qui si e' dentro l'analisi di xterm: chiudere adesso vorrebbe dire
+        // togliere l'iframe da sotto al codice che sta girando.
+        setTimeout(function () {
+          if (!inUscita && tabDi(id)) chiudiTerminale(id, true);
+        }, 0);
+      }
+
+      // onWriteParsed scatta appena il pezzo ricevuto e' finito nel buffer.
+      // onLineFeed e' il ripiego per gli xterm.js piu' vecchi: il [exited]
+      // arriva col suo a capo, quindi di li' passa comunque.
+      if (term.onWriteParsed) term.onWriteParsed(guarda);
+      else if (term.onLineFeed) term.onLineFeed(guarda);
+    }
+
+    // Il nome scritto a mano e quello automatico se ne vanno insieme: il primo
+    // descriveva un lavoro che non c'e' piu', il secondo un'applicazione che
+    // non gira piu'. Senza questo un terminale libero resterebbe in fila col
+    // nome "vim: relazione.txt".
+    //
+    // Sale anche al server, ed e' un cambio rispetto a prima, quando restava
+    // locale: allora l'indizio era la sola "Connection Closed", e un riavvio
+    // di nginx avrebbe cancellato i nomi su tutti i browser di quella
+    // identita'. Adesso si arriva qui solo con un [exited] vero, e una
+    // sessione finita e' finita per tutti i dispositivi, non solo per questo.
+    function dimenticaNome(id) {
       delete AUTO[id];
-
-      // Senza tocca(): non e' una modifica VOLUTA, e non deve vincere sul
-      // profilo del server. Se lo facesse, una sessione finita qui
-      // cancellerebbe il nome su tutti i browser di questa identita' al
-      // primo ricaricamento -- che e' esattamente cio' che questo
-      // azzeramento, restando locale, vuole evitare.
       var n = leggi(CHIAVE_NOMI, {});
       delete n[id];
       scrivi(CHIAVE_NOMI, n);
@@ -2062,7 +2582,10 @@
         function guarda(nodo) {
           if (!eOverlay(nodo)) return;
           nodo.style.fontFamily = SANS;
-          if (CADUTA.test(nodo.textContent || '')) reimpostaNome(id);
+          if (!CADUTA.test(nodo.textContent || '')) return;
+          if (inUscita || controlli[id]) return;
+          controlli[id] = 1;
+          controllaMorte(id, 20);
         }
 
         // L'addon riusa sempre lo stesso nodo: lo appende, gli cambia il testo
@@ -2096,7 +2619,13 @@
     mostraStoria();
     mostraModoTitolo();
 
-    // Primo tab subito, gli altri a richiesta.
+    // La fila dei liberi: e' anche lei che decide il layout, perche' senza
+    // nessun tab aperto si prende tutto lo spazio dei pannelli.
+    disegnaScatola();
+
+    // Primo tab subito, gli altri a richiesta. Se in testata non c'e' niente
+    // -- primo accesso, o tutti i tab chiusi -- non c'e' nessun pannello da
+    // caricare e non si apre nessuna websocket: si aspetta un click.
     caricaPannello(panes.querySelector('.tab-pane.active'));
 
     // La griglia dopo: se era accesa, e' qui che nascono gli altri iframe.

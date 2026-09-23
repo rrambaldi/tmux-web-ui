@@ -217,8 +217,40 @@ current state is, and `./install.sh` prints its full summary before touching any
 One `index.html` that loads each terminal in an `iframe`, one per tab. It is not a
 generic frontend — every feature here exists because something was annoying.
 
-- `Shift+←/→` moves through tabs in **visual order**; `Alt+0–9` jumps to a terminal's
-  **id**, which never changes even after you reorder them.
+- **The box of free terminals.** The tabs in the header are the terminals **in use**;
+  every other one sits in a row of pills under the tab bar, and that is where you take
+  them from with a click: the tab appears at the end of the header and becomes the one in
+  front. When you type `exit` (or `Ctrl-D`) in the terminal the shell dies, the tab
+  closes on its own and the terminal goes back into the row with its default name. On a
+  fresh install — and from any browser that has not opened anything yet — they are all in
+  the box, which takes the whole screen because there is nothing else to show.
+  A tab also closes by hand: the `✕` that appears on the one in front, the middle mouse
+  button, or `Ctrl+Alt+W`. The **tmux session is untouched**, whatever runs inside keeps
+  running and you find it again when you reopen the terminal; the only thing that dies is
+  `xterm.js`'s scrollback, not tmux's. Closing detaches the iframe, and that is not
+  housekeeping: a hidden but still attached pane is still a tmux client, and tmux sizes
+  the window to the **smallest** client — it would sit there throttling everyone else's
+  cells.
+  The row costs one screen line, so the `▤ n liberi` button in the header hides it (the
+  choice is remembered, and per browser: it is space on the screen in front of you). With
+  an empty header it shows anyway, because it is the only way to open anything.
+  **What the box does not know** is whether a free terminal has a session with work
+  inside it: the browser cannot know that without attaching, and attaching is exactly
+  what is being decided. The rule is therefore a different one, and it holds by itself: a
+  terminal is free until someone opens it from here, and goes back as soon as its shell
+  dies. Restarting the *service* leaves the tabs alone, and rightly so — the sessions
+  survive, see `KillMode=process`; after a machine reboot the sessions are gone but the
+  tabs come back where they were, and the first attach creates a clean one.
+  **Upgrading** from an earlier version starts you with an empty header and everything in
+  the box: the list of open terminals lives in a new key
+  (`terminal-dashboard-aperti`), and the old order — which listed *every* terminal,
+  because every terminal had a tab — is no longer read.
+- `Shift+←/→` moves through tabs in **visual order**; `Alt+1–9` goes to the tab in that
+  **position** in the header and `Alt+0` to the last one, the rightmost: with ten
+  terminals open the key row from 1 to 0 covers the tab row exactly. The digit follows
+  what you **see**, not the terminal's id, and that is a deliberate change: tabs now come
+  and go, and with the digit tied to the id you were pressing `Alt+4` without knowing
+  whether there was a tab behind it.
 - `Ctrl+H` (or the **`? Aiuto`** button) opens the **list of shortcuts**: keys, mouse
   gestures and what every header button does. It used to be one line of text in the
   header, which disappeared below 1100px — readable only where there was room to not
@@ -232,15 +264,17 @@ generic frontend — every feature here exists because something was annoying.
   the shortcuts. The text is the project's `LICENSE` file: `install.sh` copies it into
   the page (placeholder `@LICENZA@`), so it cannot drift from the original and no extra
   file has to be served.
-- `Ctrl+0–9` renames the terminal with that **id** — the same id `Alt+0–9` jumps to:
-  the digit always means the same thing, only the modifier changes, and you can rename
-  a tab that is not the one in front. **Double-click** on the tab still works. Not
+- `Ctrl+1–9` renames the tab in that **position** (`Ctrl+0` the last one) — the same
+  digit `Alt` jumps with: it always means the same tab, only the modifier changes, and
+  you can rename a tab that is not the one in front. **Double-click** on the tab still
+  works. Not
   `Ctrl+T`, which would have been handier: it is one of the shortcuts the browser keeps
   for itself (it opens a new tab) and never reaches the page at all, so no
-  `preventDefault` can help. With profiles on (`PROFILI`), names and order
-  follow **the certificate's identity** rather than the browser: you get them back in a
-  different browser, or in a private window. `localStorage` stays as a cache, so the
-  page never waits on the network and still works when the server does not answer.
+  `preventDefault` can help. With profiles on (`PROFILI`), names, **which terminals
+  are open** and in what order follow **the certificate's identity** rather than the
+  browser: you get them back in a different browser, or in a private window.
+  `localStorage` stays as a cache, so the page never waits on the network and still
+  works when the server does not answer.
 - **Automatic names**: a tab takes the name the terminal gives itself — the title the
   application writes (`vim: report.txt`, `ssh host`, `top`), or the running command. The
   🏷 button in the header (or `Ctrl+Alt+N`) cycles the three modes — **Titolo**,
@@ -268,10 +302,13 @@ generic frontend — every feature here exists because something was annoying.
   by side, 4 as 2×2, 6 as 3×2. It only appears where there is real room (2 from 1200px,
   4 from 1500×800, 6 from 1900×800): under roughly 600px per cell a terminal will not
   hold 80 columns at a readable font, and six unreadable panes are worth less than one
-  you can read; on a phone the button is not there at all. The grid is a **set** of
-  terminals, not a cell-by-cell assignment: they appear in tab order, so you rearrange
-  cells by dragging tabs exactly as before, with no second mechanism to learn. That
-  gives one rule, used by a click on a tab, by `Alt+0–9` and by `Shift+←/→`: **if that
+  you can read; on a phone the button is not there at all. Cells are filled from the
+  **tabs in the header**, so the button shows up from two open terminals on: with three
+  tabs open there is no three-cell layout, and the largest one that fits is used. The
+  grid is a **set** of terminals, not a cell-by-cell assignment: they appear in tab
+  order, so you rearrange cells by dragging tabs exactly as before, with no second
+  mechanism to learn. That
+  gives one rule, used by a click on a tab, by `Alt+<digit>` and by `Shift+←/→`: **if that
   terminal is already on screen its cell becomes the active one, and if it is not it
   takes the active cell's place**. The active cell has the green frame and is the one
   that gets keystrokes, `Congela`, `Storia` and the key bar; clicking inside a terminal
@@ -323,17 +360,16 @@ generic frontend — every feature here exists because something was annoying.
   classes the JS puts on `body`. In grid mode the width that counts is the **cell's**,
   not the window's: a 1920 split in three gives 630px cells, and the font drops to what
   a 630px screen would get.
-- When the connection drops, the **tab name resets to its default**: if you typed
-  `exit`, the tmux session is gone and `-A` will create a fresh one on reconnect, so the
-  label would be describing something that no longer exists. With three exceptions,
-  because what gets deleted here is something a person typed: nothing is reset while the
-  page is going away (`pagehide`/`beforeunload`), while it is not on screen, or for a few
-  seconds after it comes back. On reload the websockets necessarily drop and ttyd has
-  time to write "Connection Closed": without those guards the name was wiped during the
-  F5 itself — the defect that made names look like they were never saved. Coming back
-  from a locked phone is the same story: that is the tail of a system disconnect, not an
-  `exit`. The reset also **does not touch the profile timestamp**: it is not a deliberate
-  change, and must not win over what the server holds.
+- **When the shell dies, the tab closes.** `exit` or `Ctrl-D` close the shell, the tmux
+  session ends and there is nothing behind that tab any more: the tab goes away, the
+  terminal returns to the free row and the **name reverts to its default** — it described
+  what was running, and on reconnect `-A` creates a fresh session rather than
+  reattaching the old one. How a dead session is told apart from a dropped line is among
+  the traps: what is read is the `[exited]` the tmux client leaves on screen, not ttyd's
+  "Connection Closed", which shows up in both cases. While the page is going away
+  (`pagehide`/`beforeunload`) nothing is closed: on reload the websockets necessarily
+  drop, and closing tabs there would mean saving a mutilated list of open terminals and
+  finding half of them in the box after an F5.
 - ttyd's own messages ("Reconnecting…", "Press ⏎ to Reconnect") are forced to
   **sans-serif** through a `MutationObserver`. They are a `<div>` that ttyd appends
   inside the iframe with all styling inline, so neither the page's CSS nor a rule
@@ -396,10 +432,11 @@ nginx closes an idle session and the terminal drops into reconnect. The original
 never noticed because tmux's status line refreshes every 15s and keeps the channel
 warm — that is, it worked by accident.
 
-**Profiles need no backend.** Tab names and order live in one JSON per identity, and
-nginx both serves and writes it: Rocky's package ships `ngx_http_dav_module` compiled
-in, so it accepts the `PUT` on its own. No extra process to keep alive, no new port,
-all of it behind the mTLS that is already there.
+**Profiles need no backend.** Tab names, which terminals are open and in what order,
+and the grid, live in one JSON per identity, and nginx both serves and writes it:
+Rocky's package ships `ngx_http_dav_module` compiled in, so it accepts the `PUT` on its
+own. No extra process to keep alive, no new port, all of it behind the mTLS that is
+already there.
 
 The identity is the client certificate's **CN** — the only thing the service knows
 about whoever is connecting. nginx has no variable for the CN, only the whole DN, so it
@@ -442,10 +479,33 @@ Two consequences worth remembering:
   the browser would cancel it), so the window in which something has not gone up yet
   closes on its own nearly always.
 
-One thing deliberately *not* propagated: when the connection drops the label reverts to
-its default (see below), but that revert stays **local**. Were it to reach the server, a
-dropped websocket — an nginx restart, a phone losing signal — would wipe the name in
-every browser of that identity. Only deliberate renames go up.
+**One thing that used to not propagate, and now does.** When a session dies the tab name
+reverts to its default, and that revert now reaches the server too. It used to stay
+local, and for a good reason: the only hint was ttyd's "Connection Closed", and with that
+an nginx restart would have wiped the names in **every** browser of that identity. The
+hint is now the tmux client's `[exited]`, which only appears when the session really has
+ended — and a session that has ended has ended for every device, not just for the one
+that noticed. The same goes for closing the tab, which travels up with the list of open
+terminals.
+
+**How you know the shell has died.** ttyd writes "Connection Closed" both when the
+session ends and when only the line drops, and here the difference matters: in the first
+case a tab is closed and a hand-written name deleted, in the second the right move is to
+sit still and let ttyd reattach. So what is read is what the **tmux client** leaves on
+screen before exiting: when the session goes away it leaves the alternate screen
+(`ESC [ ? 1049 l`), clears, and prints one line
+
+```
+[exited]
+```
+
+which lands in `xterm.js`'s buffer and is read the same way the copy-mode indicator is.
+Verified on **tmux 3.2a** by recording a real client's pty. A dropped line does not print
+it: on the other end the process is killed, not exited, and the screen stays on its last
+frame. The check repeats for a couple of seconds after ttyd's notice, because `xterm.js`
+writes asynchronously and the last lines may still be queued. If some tmux version did
+not print that line, the tab would stay open on the dead terminal and you would close it
+with the `✕`: what is lost is the convenience, not the work.
 
 **How you know copy-mode is on.** Not by counting clicks on the button: with a real
 keyboard you can enter and leave on your own, and an indicator that lies is worse than
