@@ -104,12 +104,18 @@ sudo ./install.sh
 scp root@SERVER:/root/certs-client/primo-accesso.p12 .
 ```
 
-Tested on Rocky Linux 9. `ttyd` comes from EPEL; `nginx`, `tmux` and `openssl` from the
-base repositories.
+Tested on Rocky Linux 9 and Fedora 39. On Rocky `ttyd` comes from EPEL; on Fedora it is
+in the base repositories, and EPEL is only installed when `ttyd` is not available.
 
 `install.sh` is **idempotent**: re-run it after editing a template in `conf/` or
 changing `N_TERM` and it realigns everything, backing up whatever it overwrites.
 `--salta-pacchetti` skips the `dnf` round on re-runs.
+
+Server certificate: if `SSL_CRT` does not exist yet, `install.sh` looks for a valid
+certificate for `DOMINIO` already on the machine (the ones nginx uses, plus
+`/etc/letsencrypt/live/*`) and asks which one to use; the choice is saved in
+`impostazioni.locale.conf`. `--force` skips the search and makes a dedicated self-signed
+certificate. A `DOMINIO` without a dot (a bare `hostname -f`) is asked for and saved there too.
 
 It finishes by calling `./verifica.sh`, which checks the things that actually matter:
 that every instance is up, that **you cannot get in without a certificate**, and that

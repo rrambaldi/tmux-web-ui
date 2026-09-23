@@ -6,28 +6,59 @@
 #
 #   ./install.sh                 tutto
 #   ./install.sh --salta-pacchetti   salta dnf (rilancio veloce)
+#   ./install.sh --force         certificato server autofirmato ad hoc, anche
+#                                se nginx ne ha gia' uno valido per DOMINIO
 #   ./install.sh --aiuto
 #
-# Testato su Rocky Linux 9. Su Debian/Ubuntu i pacchetti e i path dei
+# Testato su Rocky Linux 9 e Fedora 39. Su Debian/Ubuntu i pacchetti e i path dei
 # certificati cambiano: vedi README.md. [RR]
 set -euo pipefail
 
 RADICE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SALTA_PACCHETTI=no
+FORZA_CERT=no
 
 for a in "$@"; do
     case "$a" in
         --salta-pacchetti) SALTA_PACCHETTI=si ;;
+        --force) FORZA_CERT=si ;;
         --aiuto|-h|--help) awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "$0"; exit 0 ;;
         *) echo "opzione sconosciuta: $a" >&2; exit 1 ;;
     esac
 done
 
+# comune.inc legge impostazioni.conf e porta stessaCoppia.
 # shellcheck source=/dev/null
-. "$RADICE/impostazioni.conf"
+. "$RADICE/certs/comune.inc"
 
 titolo() { echo; echo "=== $* ==="; }
 [ "$(id -u)" -eq 0 ] || { echo "Serve root." >&2; exit 1; }
+LOCALE="$RADICE/impostazioni.locale.conf"
+
+# Un DOMINIO senza punto e' quasi sempre `hostname -f` di una macchina che non
+# ha un FQDN (qui: "mine"): nessun certificato vero lo copre e nessun browser
+# ci arriva. Si chiede, si salva negli override locali e si riparte, cosi' i
+# valori derivati (SSL_CRT, ...) si ricalcolano sul nome giusto. [RR]
+case "$DOMINIO" in
+    *.*) ;;
+    *)  if [ -t 0 ]; then
+            read -r -p "DOMINIO e' '$DOMINIO', non e' un nome pubblico. Con che nome si raggiunge il servizio? " D
+            case "$D" in *.*) ;; *) echo "ERRORE: '$D' non e' un nome di dominio." >&2; exit 1 ;; esac
+            echo ": \"\${DOMINIO:=$D}\"" >> "$LOCALE"
+            echo "salvato in $LOCALE"
+            exec "$0" "$@"
+        fi
+        echo "ERRORE: DOMINIO='$DOMINIO' non e' un nome pubblico. Mettilo in $LOCALE:" >&2
+        echo "  : \"\${DOMINIO:=term.esempio.it}\"" >&2
+        exit 1 ;;
+esac
+
+# --force: il certificato e' quello ad hoc sul path di default, anche se gli
+# override locali puntano a un altro. export perche' cert-server.sh rilegge
+# impostazioni.conf, e l'ambiente vince sugli override.
+if [ "$FORZA_CERT" = si ]; then
+    export SSL_CRT="/etc/nginx/ssl/$DOMINIO.crt" SSL_KEY="/etc/nginx/ssl/$DOMINIO.key"
+fi
 
 PORTE=()
 for ((i = 0; i < N_TERM; i++)); do PORTE+=( $((PORTA_BASE + i)) ); done
@@ -119,8 +150,11 @@ fi
 # --- 1. pacchetti -------------------------------------------------------------
 if [ "$SALTA_PACCHETTI" = no ]; then
     titolo "Pacchetti"
-    # ttyd sta in EPEL, non nei repo base di Rocky/RHEL.
-    rpm -q epel-release >/dev/null 2>&1 || dnf install -y epel-release
+    # ttyd sta in EPEL su Rocky/RHEL; Fedora lo ha nei repo base e
+    # epel-release non esiste proprio (dnf fallirebbe e set -e chiuderebbe
+    # tutto qui). Si chiede EPEL solo se ttyd non e' gia' installabile.
+    rpm -q epel-release >/dev/null 2>&1 || dnf -q list ttyd >/dev/null 2>&1 \
+        || dnf install -y epel-release
     dnf install -y ttyd tmux nginx openssl
 else
     titolo "Pacchetti (saltati)"
@@ -137,6 +171,45 @@ titolo "CA dei certificati client"
 "$RADICE/certs/crea-ca.sh"
 
 titolo "Certificato TLS del server"
+# Se il certificato configurato non c'e' ancora, si guarda se il server ne ha
+# gia' uno valido per DOMINIO (quelli che nginx usa, piu' Let's Encrypt): un
+# autofirmato accanto a un certificato vero e' un avviso nel browser per
+# niente. Si chiede, e la scelta finisce in impostazioni.locale.conf, cosi' il
+# rilancio non richiede. --force salta tutto questo. [RR]
+if [ "$FORZA_CERT" = no ] && ! { [ -f "$SSL_CRT" ] && [ -f "$SSL_KEY" ]; }; then
+    CAND=()
+    while read -r c k; do
+        [ -f "$c" ] && [ -f "$k" ] || continue
+        openssl x509 -in "$c" -noout -checkend 0 >/dev/null 2>&1 || continue
+        openssl x509 -in "$c" -noout -checkhost "$DOMINIO" 2>/dev/null | grep -q ' does match' || continue
+        stessaCoppia "$c" "$k" || continue
+        CAND+=( "$c $k" )
+    done < <(
+        { nginx -T 2>/dev/null | awk '$1=="ssl_certificate"{c=$2} $1=="ssl_certificate_key"{sub(/;.*/,"",c); k=$2; sub(/;.*/,"",k); print c, k}'
+          for d in /etc/letsencrypt/live/*/; do echo "${d}fullchain.pem ${d}privkey.pem"; done
+        } | sort -u
+    )
+    if [ "${#CAND[@]}" -gt 0 ]; then
+        echo "Sul server c'e' gia' un certificato valido per $DOMINIO:"
+        for i in "${!CAND[@]}"; do
+            set -- ${CAND[$i]}
+            printf '  %s) %s  (scade %s)\n' "$((i + 1))" "$1" "$(openssl x509 -in "$1" -noout -enddate | cut -d= -f2)"
+        done
+        SCELTA=1
+        if [ -t 0 ]; then
+            read -r -p "Quale uso? [1-${#CAND[@]}, n = autofirmato ad hoc] (1) " SCELTA
+            SCELTA=${SCELTA:-1}
+        else
+            echo "(niente terminale: uso il primo; --force per l'autofirmato)"
+        fi
+        if [[ "$SCELTA" =~ ^[0-9]+$ ]] && [ "$SCELTA" -ge 1 ] && [ "$SCELTA" -le "${#CAND[@]}" ]; then
+            set -- ${CAND[$((SCELTA - 1))]}
+            export SSL_CRT="$1" SSL_KEY="$2"
+            printf ': "${SSL_CRT:=%s}"\n: "${SSL_KEY:=%s}"\n' "$1" "$2" >> "$LOCALE"
+            echo "uso $SSL_CRT (salvato in $LOCALE)"
+        fi
+    fi
+fi
 "$RADICE/certs/cert-server.sh"
 
 # --- 3. istanze ttyd ----------------------------------------------------------

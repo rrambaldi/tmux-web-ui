@@ -42,7 +42,14 @@ scp root@SERVER:/root/certs-client/primo-accesso.p12 .
 
 `install.sh` e' **idempotente**: lo si rilancia dopo aver modificato un modello in
 `conf/` o `N_TERM`, e riallinea tutto (con backup dei file che sovrascrive).
-`--salta-pacchetti` evita il giro di `dnf` nei rilanci.
+`--salta-pacchetti` evita il giro di `dnf` nei rilanci. Su Fedora `ttyd` sta nei repo
+base: EPEL si installa solo se `ttyd` non e' disponibile.
+
+Certificato del server: se `SSL_CRT` non esiste ancora, `install.sh` cerca sulla macchina
+un certificato valido per `DOMINIO` (quelli che usa nginx, piu' `/etc/letsencrypt/live/*`)
+e chiede quale usare; la scelta finisce in `impostazioni.locale.conf`. `--force` salta la
+ricerca e crea un autofirmato ad hoc. Un `DOMINIO` senza punto (un `hostname -f` nudo)
+viene chiesto e salvato li' anche lui.
 
 Alla fine chiama `./verifica.sh`, che controlla le cose che contano davvero: che le
 istanze siano attive, che **senza certificato non si entri** e che con il certificato
