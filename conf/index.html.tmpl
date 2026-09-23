@@ -1453,7 +1453,7 @@
           // /io che non risponde vuol dire profili spenti nel vhost; identita'
           // vuota vuol dire che nginx non ha ricavato un CN utilizzabile dal
           // certificato. In entrambi i casi si resta su localStorage.
-          if (!/^[A-Za-z0-9._-]{1,64}$/.test(id)) return;
+          if (!/^[A-Za-z0-9._ -]{1,64}$/.test(id)) return;
           urlProfilo = BASE + '/profili/' + encodeURIComponent(id) + '.json';
           return fetch(urlProfilo, { cache: 'no-store' }).then(function (r) {
             // 404 = primo accesso con questa identita': si semina il profilo

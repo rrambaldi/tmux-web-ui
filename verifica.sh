@@ -117,15 +117,19 @@ if [ -r "$CRT" ] && [ -r "$KEY" ]; then
             # perche' il PUT di nginx passa da un file temporaneo e da un
             # rename: se il temporaneo sta su un altro filesystem, o SELinux
             # non permette la scrittura, e' qui che si vede.
+            # Il profilo e' quello vero di chi ha quel certificato: si mette da
+            # parte e alla fine si rimette com'era (o si cancella se non c'era).
+            U="https://$DOMINIO$PREFISSO/profili/${IO// /%20}.json"
+            PRIMA=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" -w '\n%{http_code}' "$U" 2>/dev/null)
             MARCA="prova-$(date +%s)"
             C=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" -o /dev/null -w '%{http_code}' \
                      -X PUT --data "{\"nomi\":{\"0\":\"$MARCA\"},\"aperti\":[]}" \
-                     "https://$DOMINIO$PREFISSO/profili/$IO.json" 2>/dev/null)
+                     "https://$DOMINIO$PREFISSO/profili/${IO// /%20}.json" 2>/dev/null)
             case "$C" in
                 201|204) ok "PUT /profili/$IO.json -> $C" ;;
                 *)       no "PUT /profili/$IO.json -> $C (permessi della directory o contesto SELinux?)" ;;
             esac
-            RILETTO=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" "https://$DOMINIO$PREFISSO/profili/$IO.json" 2>/dev/null)
+            RILETTO=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" "https://$DOMINIO$PREFISSO/profili/${IO// /%20}.json" 2>/dev/null)
             case "$RILETTO" in
                 *"$MARCA"*) ok "riletto: il profilo torna indietro identico" ;;
                 *)          no "riletto diverso da quello scritto: $(echo "$RILETTO" | head -c 80)" ;;
@@ -141,6 +145,12 @@ if [ -r "$CRT" ] && [ -r "$KEY" ]; then
                      -X PUT --data x "https://$DOMINIO$PREFISSO/profili/qualcun-altro.json" 2>/dev/null)
             [ "$C" = 403 ] && ok "scrivere il profilo di un altro: 403" \
                            || no "scrivere il profilo di un altro risponde $C, dovrebbe essere 403"
+
+            if [ "${PRIMA##*$'\n'}" = 200 ]; then
+                curl "${R[@]}" --cert "$CRT" --key "$KEY" -o /dev/null -X PUT --data "${PRIMA%$'\n'*}" "$U" 2>/dev/null
+            else
+                curl "${R[@]}" --cert "$CRT" --key "$KEY" -o /dev/null -X DELETE "$U" 2>/dev/null
+            fi
         fi
     fi
 else

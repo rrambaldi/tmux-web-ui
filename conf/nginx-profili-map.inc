@@ -5,12 +5,13 @@
 # emailAddress quello viene PRIMA del CN: il CN si cerca quindi in mezzo alla
 # stringa, non in testa. Provato su entrambe le forme.
 #
-# Si accetta solo un CN che sia usabile come nome di file. Tutto il resto --
+# Si accetta solo un CN che sia usabile come nome di file (spazi compresi:
+# le CA fatte a mano mettono "Nome Cognome"). Tutto il resto --
 # CN assente, vuoto, troppo lungo, con caratteri strani -- diventa stringa
 # vuota, e con l'identita' vuota non si legge e non si scrive niente. [RR]
 map $ssl_client_s_dn $cn_client {
     default                                         "";
-    "~(?:^|,)CN=(?<cn>[A-Za-z0-9._-]{1,64})(?:,|$)" $cn;
+    "~(?:^|,)CN=(?<cn>[A-Za-z0-9._ -]{1,64})(?:,|$)" $cn;
 }
 
 # Il file DEVE chiamarsi esattamente come l'identita': il backreference \1
@@ -20,5 +21,5 @@ map $ssl_client_s_dn $cn_client {
 # trattato come carattere letterale, non come jolly: lo fa il backreference.
 map "$cn_client:$uri" $profilo_mio {
     default                                   0;
-    "~^([A-Za-z0-9._-]+):@PREFISSO@/profili/\1\.json$"  1;
+    "~^([A-Za-z0-9._ -]+):@PREFISSO@/profili/\1\.json$"  1;
 }
