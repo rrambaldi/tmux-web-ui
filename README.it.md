@@ -42,7 +42,13 @@ scp root@SERVER:/root/certs-client/primo-accesso.p12 .
 
 `install.sh` e' **idempotente**: lo si rilancia dopo aver modificato un modello in
 `conf/` o `N_TERM`, e riallinea tutto (con backup dei file che sovrascrive).
-`--salta-pacchetti` evita il giro di `dnf` nei rilanci. Su Fedora `ttyd` sta nei repo
+`--salta-pacchetti` evita il giro di `dnf` nei rilanci.
+
+Da terminale, il primo lancio chiede: URL dedicato o path di un sito esistente, il dominio,
+quanti terminali e con quale utente girano le shell (se manca lo crea). Le risposte finiscono
+in `impostazioni.locale.conf` e non si richiedono; per rifarle basta cancellare quel file.
+Senza terminale valgono i default. Col path propone anche di adottare la CA client del sito.
+ Su Fedora `ttyd` sta nei repo
 base: EPEL si installa solo se `ttyd` non e' disponibile.
 
 Certificato del server: se `SSL_CRT` non esiste ancora, `install.sh` cerca sulla macchina

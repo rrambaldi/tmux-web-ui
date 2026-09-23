@@ -27,13 +27,67 @@ for a in "$@"; do
     esac
 done
 
+LOCALE="$RADICE/impostazioni.locale.conf"
+
+# Le scelte che si fanno una volta per server: se non vengono dall'ambiente e
+# non stanno gia' negli override locali, install.sh le chiede. Va guardato
+# PRIMA di leggere impostazioni.conf, che riempie tutto coi default e non
+# lascerebbe piu' distinguere "deciso" da "mai chiesto". [RR]
+deciso() { [ -n "${!1+x}" ] || grep -qE "^[[:space:]]*:[[:space:]]*\"\\\$\\{$1:=" "$LOCALE" 2>/dev/null; }
+DA_CHIEDERE=()
+for v in PREFISSO DOMINIO N_TERM UTENTE; do deciso "$v" || DA_CHIEDERE+=( "$v" ); done
+
 # comune.inc legge impostazioni.conf e porta stessaCoppia.
 # shellcheck source=/dev/null
 . "$RADICE/certs/comune.inc"
 
 titolo() { echo; echo "=== $* ==="; }
 [ "$(id -u)" -eq 0 ] || { echo "Serve root." >&2; exit 1; }
-LOCALE="$RADICE/impostazioni.locale.conf"
+salva() { echo ": \"\${$1:=$2}\"" >> "$LOCALE"; }
+
+# Senza terminale non si chiede niente e valgono i default, come prima.
+# Le risposte si salvano e si riparte: i valori derivati (WEBROOT dal
+# PREFISSO, GRUPPO dall'UTENTE, ...) si ricalcolano cosi' da soli.
+if [ -t 0 ] && [ "${#DA_CHIEDERE[@]}" -gt 0 ]; then
+    titolo "Domande (le risposte finiscono in $LOCALE)"
+    for v in "${DA_CHIEDERE[@]}"; do
+        case "$v" in
+            PREFISSO)
+                echo "Come si raggiunge il servizio?"
+                echo "  1) URL dedicato         https://term.esempio.it/"
+                echo "  2) path di un sito      https://www.esempio.it/term/  (usa TLS e CA client del sito)"
+                read -r -p "Scelta [1] " R
+                case "${R:-1}" in
+                    1) PREFISSO="" ;;
+                    2) read -r -p "Path [/term] " R; PREFISSO=${R:-/term} ;;
+                    *) echo "ERRORE: 1 oppure 2." >&2; exit 1 ;;
+                esac
+                salva PREFISSO "$PREFISSO" ;;
+            DOMINIO)
+                case "$DOMINIO" in *.*) D0=$DOMINIO ;; *) D0="" ;; esac
+                if [ -n "$PREFISSO" ]; then Q="Nome del sito che lo ospita"; else Q="Nome dedicato"; fi
+                read -r -p "$Q${D0:+ [$D0]}: " R; R=${R:-$D0}
+                case "$R" in *.*) ;; *) echo "ERRORE: '$R' non e' un nome di dominio." >&2; exit 1 ;; esac
+                salva DOMINIO "$R" ;;
+            N_TERM)
+                read -r -p "Quanti terminali? [$N_TERM] " R; R=${R:-$N_TERM}
+                [[ "$R" =~ ^[1-9][0-9]?$ ]] || { echo "ERRORE: un numero da 1 a 99." >&2; exit 1; }
+                salva N_TERM "$R" ;;
+            UTENTE)
+                read -r -p "Con quale utente girano le shell? [$UTENTE] " R; R=${R:-$UTENTE}
+                [[ "$R" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "ERRORE: '$R' non e' un nome utente valido." >&2; exit 1; }
+                if ! id "$R" >/dev/null 2>&1; then
+                    read -r -p "L'utente '$R' non esiste. Lo creo? [S/n] " C
+                    case "${C:-s}" in
+                        [sSyY]*) useradd -m -s /bin/bash "$R"; echo "creato $R (senza password: si entra dal browser)" ;;
+                        *) echo "ERRORE: serve un utente che esista." >&2; exit 1 ;;
+                    esac
+                fi
+                salva UTENTE "$R" ;;
+        esac
+    done
+    exec "$0" "$@"
+fi
 
 # Un DOMINIO senza punto e' quasi sempre `hostname -f` di una macchina che non
 # ha un FQDN (qui: "mine"): nessun certificato vero lo copre e nessun browser
@@ -80,7 +134,7 @@ titolo "Riepilogo"
 cat <<RIEP
 dominio        : $DOMINIO
 utente shell   : $UTENTE:$GRUPPO
-terminali      : $N_TERM  (porte ${PORTE[0]}-${PORTE[-1]}, path /term0/ ... /term$((N_TERM-1))/)
+terminali      : $N_TERM  (porte ${PORTE[0]}-${PORTE[-1]}, path $PREFISSO/term0/ ... $PREFISSO/term$((N_TERM-1))/)
 webroot        : $WEBROOT
 $(if [ -n "$PREFISSO" ]; then
 echo "montato in     : https://$DOMINIO$PREFISSO/  (dentro il server{} del sito)"
@@ -183,6 +237,21 @@ if [ -n "$PREFISSO" ]; then
            echo "Serve 'optional' (o 'on') e una ssl_client_certificate nel server{} di $DOMINIO." >&2
            exit 1 ;;
     esac
+    # La CA giusta e' per forza quella del sito: se si ha la sua chiave accanto
+    # (ca.crt / ca.key, o x.crt / x.key) si propone di adottarla.
+    CA_KEY_SITO=$(dirname "$CA_SITO")/ca.key
+    [ -f "$CA_KEY_SITO" ] || CA_KEY_SITO=${CA_SITO%.*}.key
+    if [ "$CA_SITO" != "$CA_CRT" ] && [ -t 0 ] && [ -f "$CA_KEY_SITO" ]; then
+        read -r -p "Il sito si fida della CA $CA_SITO. La uso anche per i terminali? [S/n] " C
+        case "${C:-s}" in
+            [sSyY]*)
+                salva CA_CRT "$CA_SITO"
+                salva CA_KEY "$CA_KEY_SITO"
+                salva CA_SRL "$(dirname "$CA_SITO")/ca.srl"
+                salva CA_SUBJ "$(openssl x509 -in "$CA_SITO" -noout -subject -nameopt compat | sed 's/^subject=//')"
+                exec "$0" "$@" ;;
+        esac
+    fi
     if [ "$CA_SITO" != "$CA_CRT" ]; then
         echo "ERRORE: il sito si fida della CA $CA_SITO, ma CA_CRT e' $CA_CRT." >&2
         echo "Con il PREFISSO la CA e' quella del sito. In $LOCALE:" >&2
