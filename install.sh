@@ -44,6 +44,10 @@ for v in DOMINIO PREFISSO N_TERM UTENTE; do deciso "$v" || DA_CHIEDERE+=( "$v" )
 titolo() { echo; echo "=== $* ==="; }
 [ "$(id -u)" -eq 0 ] || { echo "Serve root." >&2; exit 1; }
 salva() { echo ": \"\${$1:=$2}\"" >> "$LOCALE"; }
+# Si riparte dal file vero e con bash esplicito: con `bash install.sh` $0 e'
+# solo "install.sh", senza percorso e magari senza bit di esecuzione, e un
+# `exec "$0"` non lo trova.
+riparti() { exec "$BASH" "$RADICE/${BASH_SOURCE[0]##*/}" "$@"; }
 
 # Il file in conf.d con un server{} https per quel nome, se c'e': vale per il
 # caso normale di un file per sito. Serve alle domande (sito che esiste gia'
@@ -117,7 +121,7 @@ if [ -t 0 ] && [ "${#DA_CHIEDERE[@]}" -gt 0 ]; then
                 salva UTENTE "$R" ;;
         esac
     done
-    exec "$0" "$@"
+    riparti "$@"
 fi
 
 # Un DOMINIO senza punto e' quasi sempre `hostname -f` di una macchina che non
@@ -131,7 +135,7 @@ case "$DOMINIO" in
             case "$D" in *.*) ;; *) echo "ERRORE: '$D' non e' un nome di dominio." >&2; exit 1 ;; esac
             echo ": \"\${DOMINIO:=$D}\"" >> "$LOCALE"
             echo "salvato in $LOCALE"
-            exec "$0" "$@"
+            riparti "$@"
         fi
         echo "ERRORE: DOMINIO='$DOMINIO' non e' un nome pubblico. Mettilo in $LOCALE:" >&2
         echo "  : \"\${DOMINIO:=term.esempio.it}\"" >&2
@@ -274,7 +278,7 @@ if [ -n "$PREFISSO" ]; then
                 salva CA_KEY "$CA_KEY_SITO"
                 salva CA_SRL "$(dirname "$CA_SITO")/ca.srl"
                 salva CA_SUBJ "$(openssl x509 -in "$CA_SITO" -noout -subject -nameopt compat | sed 's/^subject=//')"
-                exec "$0" "$@" ;;
+                riparti "$@" ;;
         esac
     fi
     if [ "$CA_SITO" != "$CA_CRT" ]; then
