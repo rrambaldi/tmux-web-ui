@@ -1,0 +1,33 @@
+# Terminali web montati sotto @PREFISSO@/ di un sito che esiste gia'.
+# Generato da install.sh (modo PREFISSO): si modifica il modello, non questa
+# copia. Va incluso DENTRO il server{} https del sito, con
+#   include @INCLUDE_PATH@;
+# TLS e mTLS sono quelli del sito: qui si pretende solo l'esito. [RR]
+
+# Senza barra finale il browser risolverebbe i percorsi relativi contro il sito.
+location = @PREFISSO@ { return 301 https://$host@PREFISSO@/; }
+
+location ^~ @PREFISSO@/ {
+    # Il sito puo' avere ssl_verify_client optional (il resto del sito e'
+    # pubblico): la protezione dei terminali E' questo controllo, ripetuto in
+    # ogni location qui sotto perche' gli `if` non si ereditano. Se sparisce,
+    # le shell sono aperte a chiunque arrivi sulla 443.
+    if ($ssl_client_verify != SUCCESS) { return 403; }
+
+    alias @WEBROOT@/;
+    index index.html;
+
+    # websocket di ttyd e sessioni lunghe: vedi nginx-terminali.conf.tmpl
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "Upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout  1d;
+    proxy_send_timeout  1d;
+
+@BLOCCHI_LOCATION@
+@BLOCCHI_PROFILI@
+}

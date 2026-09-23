@@ -379,6 +379,9 @@
     // nginx come /term<id>/ (l'elenco lo scrive install.sh da N_TERM).
     // Gli URL sono RELATIVI: stesso host, stesso https, stesso mTLS della dashboard.
 @TERMINALS@
+    // Dove e' montato il servizio: '' col vhost suo, '/term' sotto un sito
+    // esistente (PREFISSO in impostazioni.conf). Lo scrive install.sh.
+    var BASE = '@PREFISSO@';
 
     var CHIAVE_NOMI   = 'terminal-dashboard-nomi';
     // Quali terminali sono APERTI, e in che ordine stanno in testata. E' anche
@@ -539,7 +542,7 @@
       pane.className = 'tab-pane fade';
       pane.id = 'term' + t.id;
       pane.setAttribute('role', 'tabpanel');
-      pane.dataset.src = '/term' + t.id + '/';
+      pane.dataset.src = BASE + '/term' + t.id + '/';
       panes.appendChild(pane);
     });
 
@@ -1443,7 +1446,7 @@
 
     function caricaProfilo() {
       if (!window.fetch) return;   // browser troppo vecchio: localStorage e basta
-      fetch('/io', { cache: 'no-store' })
+      fetch(BASE + '/io', { cache: 'no-store' })
         .then(function (r) { return r.ok ? r.text() : null; })
         .then(function (id) {
           id = (id || '').trim();
@@ -1451,7 +1454,7 @@
           // vuota vuol dire che nginx non ha ricavato un CN utilizzabile dal
           // certificato. In entrambi i casi si resta su localStorage.
           if (!/^[A-Za-z0-9._-]{1,64}$/.test(id)) return;
-          urlProfilo = '/profili/' + encodeURIComponent(id) + '.json';
+          urlProfilo = BASE + '/profili/' + encodeURIComponent(id) + '.json';
           return fetch(urlProfilo, { cache: 'no-store' }).then(function (r) {
             // 404 = primo accesso con questa identita': si semina il profilo
             // con quello che questo browser ha gia', invece di partire vuoti.

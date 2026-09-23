@@ -53,6 +53,14 @@ case "$DOMINIO" in
         exit 1 ;;
 esac
 
+# PREFISSO: un percorso assoluto senza barra finale, fatto di pezzi innocui.
+# Finisce dentro location, regex della map e JavaScript: niente spazi, niente
+# caratteri che in uno di questi tre posti vogliano dire altro.
+if [ -n "$PREFISSO" ] && ! [[ "$PREFISSO" =~ ^(/[A-Za-z0-9._-]+)+$ ]]; then
+    echo "ERRORE: PREFISSO deve essere tipo /term (adesso: '$PREFISSO')." >&2
+    exit 1
+fi
+
 # --force: il certificato e' quello ad hoc sul path di default, anche se gli
 # override locali puntano a un altro. export perche' cert-server.sh rilegge
 # impostazioni.conf, e l'ambiente vince sugli override.
@@ -74,10 +82,16 @@ dominio        : $DOMINIO
 utente shell   : $UTENTE:$GRUPPO
 terminali      : $N_TERM  (porte ${PORTE[0]}-${PORTE[-1]}, path /term0/ ... /term$((N_TERM-1))/)
 webroot        : $WEBROOT
-vhost          : $VHOST
-cert server    : $SSL_CRT
+$(if [ -n "$PREFISSO" ]; then
+echo "montato in     : https://$DOMINIO$PREFISSO/  (dentro il server{} del sito)"
+echo "location in    : $INCLUDE_PATH"
+echo "upstream/map in: $VHOST"
+else
+echo "vhost          : $VHOST"
+echo "cert server    : $SSL_CRT"
+echo "verifica client: ssl_verify_client $VERIFICA_CLIENT"
+fi)
 CA client      : $CA_CRT
-verifica client: ssl_verify_client $VERIFICA_CLIENT
 cert client in : $CERT_CLIENT_DIR
 porta 80       : $PROTEGGI_80
 profili utente : $PROFILI$([ "$PROFILI" = si ] && echo "  ($DIR_PROFILI)")
@@ -147,6 +161,38 @@ MOTIVO
     exit 1
 fi
 
+# Modo PREFISSO: il server{} che ci ospita deve esistere e fidarsi della
+# stessa CA con cui si emettono i certificati client, altrimenti i terminali
+# sarebbero montati ma nessun certificato nostro passerebbe. Si controlla
+# PRIMA di installare: e' un errore di configurazione, non di pacchetti.
+# Si cerca il file in conf.d con `server_name ... $DOMINIO` e una 443: vale
+# per il caso normale di un file per sito. [RR]
+if [ -n "$PREFISSO" ]; then
+    SITO=""
+    for f in /etc/nginx/conf.d/*.conf; do
+        [ "$f" = "$VHOST" ] && continue
+        grep -qE "^[[:space:]]*server_name[^;]*[[:space:]]${DOMINIO//./\\.}[[:space:];]" "$f" \
+            && grep -qE '^[[:space:]]*listen[^;]*443' "$f" && { SITO=$f; break; }
+    done
+    [ -n "$SITO" ] || { echo "ERRORE: nessun file in /etc/nginx/conf.d ha un server{} https per $DOMINIO." >&2; exit 1; }
+    CA_SITO=$(awk '$1=="ssl_client_certificate"{sub(/;.*/,"",$2); print $2; exit}' "$SITO")
+    VERIFICA_SITO=$(awk '$1=="ssl_verify_client"{sub(/;.*/,"",$2); print $2; exit}' "$SITO")
+    case "$VERIFICA_SITO" in
+        on|optional) ;;
+        *) echo "ERRORE: $SITO non chiede certificati client (ssl_verify_client '${VERIFICA_SITO:-assente}')." >&2
+           echo "Serve 'optional' (o 'on') e una ssl_client_certificate nel server{} di $DOMINIO." >&2
+           exit 1 ;;
+    esac
+    if [ "$CA_SITO" != "$CA_CRT" ]; then
+        echo "ERRORE: il sito si fida della CA $CA_SITO, ma CA_CRT e' $CA_CRT." >&2
+        echo "Con il PREFISSO la CA e' quella del sito. In $LOCALE:" >&2
+        echo "  : \"\${CA_CRT:=$CA_SITO}\"" >&2
+        echo "  : \"\${CA_KEY:=<la sua chiave>}\"" >&2
+        exit 1
+    fi
+    echo "sito ospite    : $SITO (ssl_verify_client $VERIFICA_SITO)"
+fi
+
 # --- 1. pacchetti -------------------------------------------------------------
 if [ "$SALTA_PACCHETTI" = no ]; then
     titolo "Pacchetti"
@@ -170,6 +216,9 @@ echo "nginx : $(nginx -v 2>&1)"
 titolo "CA dei certificati client"
 "$RADICE/certs/crea-ca.sh"
 
+if [ -n "$PREFISSO" ]; then
+titolo "Certificato TLS del server (quello del sito, non si tocca)"
+else
 titolo "Certificato TLS del server"
 # Se il certificato configurato non c'e' ancora, si guarda se il server ne ha
 # gia' uno valido per DOMINIO (quelli che nginx usa, piu' Let's Encrypt): un
@@ -211,6 +260,7 @@ if [ "$FORZA_CERT" = no ] && ! { [ -f "$SSL_CRT" ] && [ -f "$SSL_KEY" ]; }; then
     fi
 fi
 "$RADICE/certs/cert-server.sh"
+fi
 
 # --- 3. istanze ttyd ----------------------------------------------------------
 titolo "Unit ttyd@"
@@ -279,10 +329,10 @@ fi
 # `|| return 0` e non `&& printf`: con set -e una funzione il cui ultimo
 # comando fallisce fa morire lo script, e qui il file mancante e' la norma.
 icona() { [ -f "$WEBROOT/$1" ] || return 0; printf '  %s\n' "$2" >> "$TMP/icone"; }
-icona apple-touch-icon.png '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">'
-icona favicon-32x32.png    '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">'
-icona favicon-16x16.png    '<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">'
-icona site.webmanifest     '<link rel="manifest" href="/site.webmanifest">'
+icona apple-touch-icon.png "<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"$PREFISSO/apple-touch-icon.png\">"
+icona favicon-32x32.png    "<link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"$PREFISSO/favicon-32x32.png\">"
+icona favicon-16x16.png    "<link rel=\"icon\" type=\"image/png\" sizes=\"16x16\" href=\"$PREFISSO/favicon-16x16.png\">"
+icona site.webmanifest     "<link rel=\"manifest\" href=\"$PREFISSO/site.webmanifest\">"
 N_ICONE=$(wc -l < "$TMP/icone")
 
 # La licenza va dentro la pagina, nel <pre> nascosto che il bottone dell'aiuto
@@ -300,7 +350,7 @@ fi
 sed -e "/@ICONE@/r $TMP/icone" -e "/@ICONE@/d" \
     -e "/@TERMINALS@/r $TMP/terminals" -e "/@TERMINALS@/d" \
     -e "/@LICENZA@/r $TMP/licenza" -e "/@LICENZA@/d" \
-    -e "s|@TITOLO@|$TITOLO|g" \
+    -e "s|@TITOLO@|$TITOLO|g" -e "s|@PREFISSO@|$PREFISSO|g" \
     "$RADICE/conf/index.html.tmpl" > "$WEBROOT/index.html"
 chmod 644 "$WEBROOT/index.html"
 echo "$WEBROOT/index.html: $N_TERM terminali, $N_ICONE icone"
@@ -310,15 +360,18 @@ titolo "nginx"
 for p in "${PORTE[@]}"; do
     echo "upstream ttyd_$p { server 127.0.0.1:$p; }" >> "$TMP/upstream"
 done
+# Il controllo dell'mTLS in ogni location: nel vhost nostro c'e' gia' a
+# livello di server (e questo non scatta mai), col PREFISSO e' l'unico.
 for ((i = 0; i < N_TERM; i++)); do
-    printf '    location /term%s/ { proxy_pass http://ttyd_%s/; }\n' "$i" "$((PORTA_BASE + i))" >> "$TMP/location"
+    printf '    location %s/term%s/ { if ($ssl_client_verify != SUCCESS) { return 403; } proxy_pass http://ttyd_%s/; }\n' \
+        "$PREFISSO" "$i" "$((PORTA_BASE + i))" >> "$TMP/location"
 done
 
 # Profili: i due pezzi si aggiungono solo se accesi. Le map stanno a livello
 # http (fuori dal server), le location dentro: sono due segnaposto separati.
 if [ "$PROFILI" = si ]; then
-    cp "$RADICE/conf/nginx-profili-map.inc" "$TMP/profilimap"
-    sed -e "s|@RADICE_PROFILI@|$(dirname "$DIR_PROFILI")|g" \
+    sed -e "s|@PREFISSO@|$PREFISSO|g" "$RADICE/conf/nginx-profili-map.inc" > "$TMP/profilimap"
+    sed -e "s|@DIR_PROFILI@|$DIR_PROFILI|g" -e "s|@PREFISSO@|$PREFISSO|g" \
         "$RADICE/conf/nginx-profili.inc" > "$TMP/profili"
 else
     : > "$TMP/profilimap"; : > "$TMP/profili"
@@ -326,6 +379,20 @@ fi
 
 # Il blocco multiriga si inserisce col trucco classico di sed: "r file"
 # accoda il contenuto dopo la riga del segnaposto, "d" cancella il segnaposto.
+if [ -n "$PREFISSO" ]; then
+    # upstream e map sono roba del livello http: vanno in conf.d, che nginx
+    # include li'. Le location vanno nel server{} del sito, via include.
+    { echo "# Terminali web (modo PREFISSO): upstream e map. Generato da install.sh, le"
+      echo "# location stanno in $INCLUDE_PATH, incluso dal server{} di $DOMINIO."
+      cat "$TMP/upstream" "$TMP/profilimap"; } > "$TMP/vhost.conf"
+    sed -e "/@BLOCCHI_LOCATION@/r $TMP/location" -e "/@BLOCCHI_LOCATION@/d" \
+        -e "/@BLOCCHI_PROFILI@/r $TMP/profili" -e "/@BLOCCHI_PROFILI@/d" \
+        -e "s|@PREFISSO@|$PREFISSO|g" -e "s|@WEBROOT@|$WEBROOT|g" \
+        -e "s|@INCLUDE_PATH@|$INCLUDE_PATH|g" \
+        "$RADICE/conf/nginx-terminali-path.inc.tmpl" > "$TMP/path.inc"
+    [ -f "$INCLUDE_PATH" ] && cp -p "$INCLUDE_PATH" "$INCLUDE_PATH.bak-$(date +%Y%m%d%H%M%S)"
+    install -m 644 -o root -g root "$TMP/path.inc" "$INCLUDE_PATH"
+else
 sed -e "/@BLOCCHI_UPSTREAM@/r $TMP/upstream" -e "/@BLOCCHI_UPSTREAM@/d" \
     -e "/@BLOCCHI_LOCATION@/r $TMP/location" -e "/@BLOCCHI_LOCATION@/d" \
     -e "/@BLOCCHI_PROFILI_MAP@/r $TMP/profilimap" -e "/@BLOCCHI_PROFILI_MAP@/d" \
@@ -334,15 +401,59 @@ sed -e "/@BLOCCHI_UPSTREAM@/r $TMP/upstream" -e "/@BLOCCHI_UPSTREAM@/d" \
     -e "s|@CA_CRT@|$CA_CRT|g" -e "s|@WEBROOT@|$WEBROOT|g" \
     -e "s|@VERIFICA_CLIENT@|$VERIFICA_CLIENT|g" \
     "$RADICE/conf/nginx-terminali.conf.tmpl" > "$TMP/vhost.conf"
+fi
 
 [ -f "$VHOST" ] && cp -p "$VHOST" "$VHOST.bak-$(date +%Y%m%d%H%M%S)"
 install -m 644 -o root -g root "$TMP/vhost.conf" "$VHOST"
+
+# La riga include nel server{} del sito. E' il file di un altro progetto:
+# si chiede, si fa il backup, e se nginx -t non regge si rimette com'era.
+# Va subito dopo il server_name del blocco https: e' l'unico punto del file
+# che si riconosce con certezza. [RR]
+if [ -n "$PREFISSO" ]; then
+    if grep -qF "include $INCLUDE_PATH;" "$SITO"; then
+        echo "$SITO include gia' $INCLUDE_PATH"
+    else
+        RISP=n
+        if [ -t 0 ]; then
+            read -r -p "Aggiungo 'include $INCLUDE_PATH;' nel server{} https di $SITO? [S/n] " RISP
+            RISP=${RISP:-s}
+        fi
+        case "$RISP" in
+            [sSyY]*)
+                BAK="$SITO.bak-$(date +%Y%m%d%H%M%S)"
+                cp -p "$SITO" "$BAK"
+                awk -v inc="$INCLUDE_PATH" -v dom="$DOMINIO" '
+                    /^[[:space:]]*server[[:space:]]*\{/ { ssl = 0 }
+                    /^[[:space:]]*listen[^;]*443/        { ssl = 1 }
+                    { print }
+                    !fatto && ssl && $1 == "server_name" && index($0, dom) {
+                        print "\t# terminali web sotto un path: vedi tmux-web-ui/install.sh"
+                        print "\tinclude " inc ";"
+                        fatto = 1
+                    }' "$BAK" > "$SITO"
+                if grep -qF "include $INCLUDE_PATH;" "$SITO" && nginx -t >/dev/null 2>&1; then
+                    echo "aggiunto in $SITO (backup: $BAK)"
+                else
+                    cp -p "$BAK" "$SITO"
+                    echo "ERRORE: con l'include nginx non regge, $SITO rimesso com'era:" >&2
+                    nginx -t >&2 || true
+                    exit 1
+                fi ;;
+            *)  echo "NOTA: aggiungi a mano nel server{} https di $DOMINIO, poi rilancia:"
+                echo "  include $INCLUDE_PATH;" ;;
+        esac
+    fi
+fi
 
 # --- 6. porta 80 --------------------------------------------------------------
 # Vedi conf/nginx-80.conf.tmpl per il perche'. Qui si sceglie solo quanto in
 # largo si tira la coperta.
 titolo "Porta 80 ($PROTEGGI_80)"
-if [ "$PROTEGGI_80" = no ]; then
+if [ -n "$PREFISSO" ]; then
+    # La 80 di $DOMINIO e' del sito: un nostro server_name uguale litigherebbe.
+    echo "modo PREFISSO: la 80 e' del sito, non la tocco"
+elif [ "$PROTEGGI_80" = no ]; then
     # Idempotenza anche in marcia indietro: se un giro precedente aveva
     # installato il file, tornare a 'no' deve toglierlo davvero.
     if [ -f "$VHOST_80" ]; then
@@ -464,7 +575,7 @@ richiesta riceve la pagina che spiega cosa manca. Per entrare:
 
   1. porta via il .p12         scp root@$DOMINIO:$CERT_CLIENT_DIR/$CLIENT_INIZIALE.p12 .
   2. importalo nel browser     (Chrome: Impostazioni > Privacy > Certificati > I tuoi certificati)
-  3. apri                      https://$DOMINIO/
+  3. apri                      https://$DOMINIO$PREFISSO/
 
 Un certificato in piu' per ogni dispositivo:
 

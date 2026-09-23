@@ -20,5 +20,5 @@ map $ssl_client_s_dn $cn_client {
 # trattato come carattere letterale, non come jolly: lo fa il backreference.
 map "$cn_client:$uri" $profilo_mio {
     default                                   0;
-    "~^([A-Za-z0-9._-]+):/profili/\1\.json$"  1;
+    "~^([A-Za-z0-9._-]+):@PREFISSO@/profili/\1\.json$"  1;
 }

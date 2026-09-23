@@ -89,6 +89,29 @@ Un certificato per **dispositivo**, non per persona: il telefono perso si butta 
 toccare il resto. Per togliere l'accesso a uno solo serve una CRL — non c'e', e per
 pochi dispositivi la strada pratica e' rigenerare la CA e riemettere i certificati.
 
+## Montarlo sotto un path di un sito esistente
+
+Con `PREFISSO=/term` non si crea nessun `server{}`: il servizio sta in
+`https://DOMINIO/term/` dentro il `server{}` https del sito, con il suo certificato e la sua
+CA client.
+
+```bash
+# impostazioni.locale.conf
+: "${DOMINIO:=www.esempio.it}"
+: "${PREFISSO:=/term}"
+: "${CA_CRT:=/etc/pki/esempio-ca/ca.crt}"   # la ssl_client_certificate del sito
+: "${CA_KEY:=/etc/pki/esempio-ca/ca.key}"
+```
+
+- `install.sh` trova il file del sito in `/etc/nginx/conf.d` (`server_name DOMINIO` + 443) e
+  si ferma se non ha `ssl_verify_client optional|on` o se la sua CA non e' `CA_CRT`.
+- Le location vanno in `INCLUDE_PATH` (`/etc/nginx/terminali-path.inc`), upstream e map in
+  `VHOST`. La riga `include` nel `server{}` del sito la aggiunge chiedendo, con backup, e la
+  toglie se `nginx -t` fallisce.
+- Ogni location controlla da se' `$ssl_client_verify`: il resto del sito puo' essere pubblico.
+- La dashboard va in `/usr/share/nginx/terminali`, non nella root del sito.
+- La porta 80 resta del sito.
+
 ## Adottare un'installazione esistente
 
 I default di `impostazioni.conf` descrivono una macchina pulita. Su un server che una

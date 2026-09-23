@@ -2,7 +2,8 @@
     # --- profili per utente ---------------------------------------------------
     # La dashboard non conosce il proprio CN: glielo dice nginx. Sta dentro
     # questo server, quindi dietro l'mTLS come tutto il resto.
-    location = /io {
+    location = @PREFISSO@/io {
+        if ($ssl_client_verify != SUCCESS) { return 403; }
         default_type text/plain;
         return 200 "$cn_client\n";
     }
@@ -14,12 +15,16 @@
     #
     # `if` con `return` e' uno dei due usi che la documentazione di nginx
     # considera sicuri, e serve qui: il controllo vale per ogni metodo.
-    location /profili/ {
+    location @PREFISSO@/profili/ {
+        # Il controllo dell'mTLS anche qui: col PREFISSO il server{} e' quello
+        # del sito, che puo' lasciar entrare anche senza certificato.
+        if ($ssl_client_verify != SUCCESS) { return 403; }
         if ($profilo_mio = 0) { return 403; }
 
-        # root e non alias: il file e' <DIR_PROFILI>/<cn>.json e il nome lo
-        # decide la map qui sopra, non la richiesta.
-        root @RADICE_PROFILI@;
+        # Il file e' <DIR_PROFILI>/<cn>.json e il nome lo decide la map
+        # qui sopra, non la richiesta. alias e non root: col PREFISSO l'URI
+        # non finisce piu' come il percorso su disco.
+        alias @DIR_PROFILI@/;
 
         dav_methods PUT DELETE;
         dav_access user:rw;

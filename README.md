@@ -160,6 +160,29 @@ without touching anyone else. Revoking a single certificate would need a CRL —
 isn't one, and for a handful of devices the practical answer is to regenerate the CA
 and reissue.
 
+## Mounting it under a path of an existing site
+
+With `PREFISSO=/term` no new `server{}` is created: the service lives at
+`https://DOMINIO/term/` inside the site's own https `server{}`, with the site's certificate
+and the site's client CA.
+
+```bash
+# impostazioni.locale.conf
+: "${DOMINIO:=www.example.com}"
+: "${PREFISSO:=/term}"
+: "${CA_CRT:=/etc/pki/example-ca/ca.crt}"   # the site's ssl_client_certificate
+: "${CA_KEY:=/etc/pki/example-ca/ca.key}"
+```
+
+- `install.sh` finds the site's file in `/etc/nginx/conf.d` (`server_name DOMINIO` + 443) and
+  refuses to go on unless it has `ssl_verify_client optional|on` and `CA_CRT` is its CA.
+- Locations go to `INCLUDE_PATH` (`/etc/nginx/terminali-path.inc`), upstreams and maps to
+  `VHOST`. The `include` line is added to the site's `server{}` after asking, with a backup,
+  and rolled back if `nginx -t` fails.
+- Every location checks `$ssl_client_verify` itself: the rest of the site may be public.
+- The dashboard goes to `/usr/share/nginx/terminali`, not into the site's root.
+- Port 80 is left to the site.
+
 ## Adopting an existing installation
 
 The defaults in `impostazioni.conf` describe a fresh host. On a server that already

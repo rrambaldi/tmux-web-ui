@@ -70,8 +70,8 @@ echo "mTLS (ssl_verify_client $VERIFICA_CLIENT):"
 # la prende per la dashboard e dichiara l'mTLS rotto su un server che invece
 # funziona. Percio' l'unico marcatore ammesso per "sono entrato" e' qualcosa
 # che ha solo la dashboard, cioe' `var TERMINALS`. [RR]
-SENZA=$(curl "${R[@]}" "https://$DOMINIO/" 2>/dev/null)
-CODICE=$(curl "${R[@]}" -o /dev/null -w '%{http_code}' "https://$DOMINIO/" 2>/dev/null)
+SENZA=$(curl "${R[@]}" "https://$DOMINIO$PREFISSO/" 2>/dev/null)
+CODICE=$(curl "${R[@]}" -o /dev/null -w '%{http_code}' "https://$DOMINIO$PREFISSO/" 2>/dev/null)
 case "$SENZA" in
     *"No required SSL certificate"*)
         ok "senza certificato: rifiutato da nginx con 400 (modo on)" ;;
@@ -90,14 +90,14 @@ esac
 CRT="$CERT_CLIENT_DIR/$CLIENT_INIZIALE.crt"
 KEY="$CERT_CLIENT_DIR/$CLIENT_INIZIALE.key"
 if [ -r "$CRT" ] && [ -r "$KEY" ]; then
-    CON=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" "https://$DOMINIO/" 2>/dev/null)
+    CON=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" "https://$DOMINIO$PREFISSO/" 2>/dev/null)
     case "$CON" in
         *"var TERMINALS"*) ok "con certificato: dashboard servita" ;;
         *)                 no "con certificato la dashboard non arriva: $(echo "$CON" | head -1)" ;;
     esac
     for ((i = 0; i < N_TERM; i++)); do
-        C=$(curl "${R[@]}" -o /dev/null -w '%{http_code}' --cert "$CRT" --key "$KEY" "https://$DOMINIO/term$i/" 2>/dev/null)
-        [ "$C" = 200 ] && ok "/term$i/ -> 200" || no "/term$i/ -> $C"
+        C=$(curl "${R[@]}" -o /dev/null -w '%{http_code}' --cert "$CRT" --key "$KEY" "https://$DOMINIO$PREFISSO/term$i/" 2>/dev/null)
+        [ "$C" = 200 ] && ok "$PREFISSO/term$i/ -> 200" || no "$PREFISSO/term$i/ -> $C"
     done
 
     # --- profili per utente ---------------------------------------------------
@@ -105,7 +105,7 @@ if [ -r "$CRT" ] && [ -r "$KEY" ]; then
         echo "profili per utente:"
         # /io dice alla dashboard chi e'. Il CN qui e' quello del certificato
         # con cui stiamo provando, cioe' CLIENT_INIZIALE.
-        IO=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" "https://$DOMINIO/io" 2>/dev/null | tr -d '\r\n')
+        IO=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" "https://$DOMINIO$PREFISSO/io" 2>/dev/null | tr -d '\r\n')
         case "$IO" in
             "$CLIENT_INIZIALE") ok "/io -> $IO" ;;
             "") no "/io non restituisce nessuna identita': nginx non ricava il CN dal certificato" ;;
@@ -120,12 +120,12 @@ if [ -r "$CRT" ] && [ -r "$KEY" ]; then
             MARCA="prova-$(date +%s)"
             C=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" -o /dev/null -w '%{http_code}' \
                      -X PUT --data "{\"nomi\":{\"0\":\"$MARCA\"},\"aperti\":[]}" \
-                     "https://$DOMINIO/profili/$IO.json" 2>/dev/null)
+                     "https://$DOMINIO$PREFISSO/profili/$IO.json" 2>/dev/null)
             case "$C" in
                 201|204) ok "PUT /profili/$IO.json -> $C" ;;
                 *)       no "PUT /profili/$IO.json -> $C (permessi della directory o contesto SELinux?)" ;;
             esac
-            RILETTO=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" "https://$DOMINIO/profili/$IO.json" 2>/dev/null)
+            RILETTO=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" "https://$DOMINIO$PREFISSO/profili/$IO.json" 2>/dev/null)
             case "$RILETTO" in
                 *"$MARCA"*) ok "riletto: il profilo torna indietro identico" ;;
                 *)          no "riletto diverso da quello scritto: $(echo "$RILETTO" | head -c 80)" ;;
@@ -134,11 +134,11 @@ if [ -r "$CRT" ] && [ -r "$KEY" ]; then
             # L'isolamento fra identita' e' l'unica cosa che rende accettabile
             # tenere qui le preferenze di persone diverse.
             C=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" -o /dev/null -w '%{http_code}' \
-                     "https://$DOMINIO/profili/qualcun-altro.json" 2>/dev/null)
+                     "https://$DOMINIO$PREFISSO/profili/qualcun-altro.json" 2>/dev/null)
             [ "$C" = 403 ] && ok "il profilo di un altro: 403" \
                            || no "il profilo di un altro risponde $C, dovrebbe essere 403"
             C=$(curl "${R[@]}" --cert "$CRT" --key "$KEY" -o /dev/null -w '%{http_code}' \
-                     -X PUT --data x "https://$DOMINIO/profili/qualcun-altro.json" 2>/dev/null)
+                     -X PUT --data x "https://$DOMINIO$PREFISSO/profili/qualcun-altro.json" 2>/dev/null)
             [ "$C" = 403 ] && ok "scrivere il profilo di un altro: 403" \
                            || no "scrivere il profilo di un altro risponde $C, dovrebbe essere 403"
         fi
@@ -193,7 +193,7 @@ if [ "$PROFILI" = si ]; then
     else
         no "$DIR_PROFILI non esiste: il PUT dei profili fallira'"
     fi
-    C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1/profili/chiunque.json" 2>/dev/null)
+    C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1$PREFISSO/profili/chiunque.json" 2>/dev/null)
     case "$C" in
         200) no "i profili si scaricano in chiaro sulla 80 (HTTP $C)" ;;
         *)   ok "sulla 80 i profili non ci sono (HTTP $C)" ;;
@@ -202,8 +202,8 @@ fi
 
 R80=(--resolve "$DOMINIO:80:127.0.0.1" -s --max-time 10)
 # Per nome: e' il caso che PROTEGGI_80=nome deve coprire.
-CODICE=$(curl "${R80[@]}" -o /dev/null -w '%{http_code}' "http://$DOMINIO/" 2>/dev/null)
-CORPO=$(curl "${R80[@]}" "http://$DOMINIO/" 2>/dev/null)
+CODICE=$(curl "${R80[@]}" -o /dev/null -w '%{http_code}' "http://$DOMINIO$PREFISSO/" 2>/dev/null)
+CORPO=$(curl "${R80[@]}" "http://$DOMINIO$PREFISSO/" 2>/dev/null)
 case "$CORPO" in
     *"var TERMINALS"*)
         if [ "$PROTEGGI_80" = no ]; then
