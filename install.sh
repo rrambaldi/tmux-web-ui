@@ -35,7 +35,7 @@ LOCALE="$RADICE/impostazioni.locale.conf"
 # lascerebbe piu' distinguere "deciso" da "mai chiesto". [RR]
 deciso() { [ -n "${!1+x}" ] || grep -qE "^[[:space:]]*:[[:space:]]*\"\\\$\\{$1:=" "$LOCALE" 2>/dev/null; }
 DA_CHIEDERE=()
-for v in PREFISSO DOMINIO N_TERM UTENTE; do deciso "$v" || DA_CHIEDERE+=( "$v" ); done
+for v in DOMINIO PREFISSO N_TERM UTENTE; do deciso "$v" || DA_CHIEDERE+=( "$v" ); done
 
 # comune.inc legge impostazioni.conf e porta stessaCoppia.
 # shellcheck source=/dev/null
@@ -45,44 +45,75 @@ titolo() { echo; echo "=== $* ==="; }
 [ "$(id -u)" -eq 0 ] || { echo "Serve root." >&2; exit 1; }
 salva() { echo ": \"\${$1:=$2}\"" >> "$LOCALE"; }
 
+# Il file in conf.d con un server{} https per quel nome, se c'e': vale per il
+# caso normale di un file per sito. Serve alle domande (sito che esiste gia'
+# = si va sotto un path) e al modo PREFISSO (dove mettere l'include).
+trovaSito() {
+    local f
+    for f in /etc/nginx/conf.d/*.conf; do
+        [ "$f" = "$VHOST" ] && continue
+        grep -qE "^[[:space:]]*server_name[^;]*[[:space:]]${1//./\\.}[[:space:];]" "$f" \
+            && grep -qE '^[[:space:]]*listen[^;]*443' "$f" && { echo "$f"; return; }
+    done
+    # niente trovato non e' un errore: con set -e un $(...) fallito chiuderebbe tutto
+    return 0
+}
+
 # Senza terminale non si chiede niente e valgono i default, come prima.
 # Le risposte si salvano e si riparte: i valori derivati (WEBROOT dal
 # PREFISSO, GRUPPO dall'UTENTE, ...) si ricalcolano cosi' da soli.
+# Una risposta sbagliata si richiede, non chiude lo script. [RR]
 if [ -t 0 ] && [ "${#DA_CHIEDERE[@]}" -gt 0 ]; then
     titolo "Domande (le risposte finiscono in $LOCALE)"
     for v in "${DA_CHIEDERE[@]}"; do
         case "$v" in
-            PREFISSO)
-                echo "Come si raggiunge il servizio?"
-                echo "  1) URL dedicato         https://term.esempio.it/"
-                echo "  2) path di un sito      https://www.esempio.it/term/  (usa TLS e CA client del sito)"
-                read -r -p "Scelta [1] " R
-                case "${R:-1}" in
-                    1) PREFISSO="" ;;
-                    2) read -r -p "Path [/term] " R; PREFISSO=${R:-/term} ;;
-                    *) echo "ERRORE: 1 oppure 2." >&2; exit 1 ;;
-                esac
-                salva PREFISSO "$PREFISSO" ;;
             DOMINIO)
                 case "$DOMINIO" in *.*) D0=$DOMINIO ;; *) D0="" ;; esac
-                if [ -n "$PREFISSO" ]; then Q="Nome del sito che lo ospita"; else Q="Nome dedicato"; fi
-                read -r -p "$Q${D0:+ [$D0]}: " R; R=${R:-$D0}
-                case "$R" in *.*) ;; *) echo "ERRORE: '$R' non e' un nome di dominio." >&2; exit 1 ;; esac
+                while :; do
+                    read -r -p "Nome del sito${D0:+ [$D0]}: " R; R=${R:-$D0}
+                    case "$R" in *.*) break ;; esac
+                    echo "  '$R' non e' un nome di dominio, riprova."
+                done
+                DOMINIO=$R
                 salva DOMINIO "$R" ;;
+            PREFISSO)
+                # Un sito che c'e' gia' ha il suo server{} sulla 443: un vhost
+                # nostro con lo stesso nome nginx lo ignorerebbe. Quindi path.
+                SITO=$(trovaSito "$DOMINIO")
+                if [ -n "$SITO" ]; then
+                    echo "$DOMINIO esiste gia' ($SITO): i terminali vanno sotto un suo path."
+                    while :; do
+                        read -r -p "Path [/term] " R; R=${R:-/term}
+                        [[ "$R" =~ ^(/[A-Za-z0-9._-]+)+$ ]] && break
+                        echo "  il path e' tipo /term (senza barra finale), riprova."
+                    done
+                    PREFISSO=$R
+                else
+                    echo "$DOMINIO non e' un sito di questo nginx: avra' un URL dedicato, https://$DOMINIO/"
+                    PREFISSO=""
+                fi
+                salva PREFISSO "$PREFISSO" ;;
             N_TERM)
-                read -r -p "Quanti terminali? [$N_TERM] " R; R=${R:-$N_TERM}
-                [[ "$R" =~ ^[1-9][0-9]?$ ]] || { echo "ERRORE: un numero da 1 a 99." >&2; exit 1; }
+                while :; do
+                    read -r -p "Quanti terminali? [$N_TERM] " R; R=${R:-$N_TERM}
+                    [[ "$R" =~ ^[1-9][0-9]?$ ]] && break
+                    echo "  un numero da 1 a 99, riprova."
+                done
                 salva N_TERM "$R" ;;
             UTENTE)
-                read -r -p "Con quale utente girano le shell? [$UTENTE] " R; R=${R:-$UTENTE}
-                [[ "$R" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "ERRORE: '$R' non e' un nome utente valido." >&2; exit 1; }
-                if ! id "$R" >/dev/null 2>&1; then
+                while :; do
+                    read -r -p "Con quale utente girano le shell? [$UTENTE] " R; R=${R:-$UTENTE}
+                    if ! [[ "$R" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+                        echo "  '$R' non e' un nome utente valido, riprova."; continue
+                    fi
+                    id "$R" >/dev/null 2>&1 && break
                     read -r -p "L'utente '$R' non esiste. Lo creo? [S/n] " C
                     case "${C:-s}" in
-                        [sSyY]*) useradd -m -s /bin/bash "$R"; echo "creato $R (senza password: si entra dal browser)" ;;
-                        *) echo "ERRORE: serve un utente che esista." >&2; exit 1 ;;
+                        [sSyY]*) useradd -m -s /bin/bash "$R"
+                                 echo "creato $R (senza password: si entra dal browser)"; break ;;
+                        *) echo "  allora dimmene un altro." ;;
                     esac
-                fi
+                done
                 salva UTENTE "$R" ;;
         esac
     done
@@ -219,15 +250,9 @@ fi
 # stessa CA con cui si emettono i certificati client, altrimenti i terminali
 # sarebbero montati ma nessun certificato nostro passerebbe. Si controlla
 # PRIMA di installare: e' un errore di configurazione, non di pacchetti.
-# Si cerca il file in conf.d con `server_name ... $DOMINIO` e una 443: vale
-# per il caso normale di un file per sito. [RR]
+# Il file del sito lo trova trovaSito. [RR]
 if [ -n "$PREFISSO" ]; then
-    SITO=""
-    for f in /etc/nginx/conf.d/*.conf; do
-        [ "$f" = "$VHOST" ] && continue
-        grep -qE "^[[:space:]]*server_name[^;]*[[:space:]]${DOMINIO//./\\.}[[:space:];]" "$f" \
-            && grep -qE '^[[:space:]]*listen[^;]*443' "$f" && { SITO=$f; break; }
-    done
+    SITO=$(trovaSito "$DOMINIO")
     [ -n "$SITO" ] || { echo "ERRORE: nessun file in /etc/nginx/conf.d ha un server{} https per $DOMINIO." >&2; exit 1; }
     CA_SITO=$(awk '$1=="ssl_client_certificate"{sub(/;.*/,"",$2); print $2; exit}' "$SITO")
     VERIFICA_SITO=$(awk '$1=="ssl_verify_client"{sub(/;.*/,"",$2); print $2; exit}' "$SITO")

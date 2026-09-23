@@ -111,8 +111,10 @@ in the base repositories, and EPEL is only installed when `ttyd` is not availabl
 changing `N_TERM` and it realigns everything, backing up whatever it overwrites.
 `--salta-pacchetti` skips the `dnf` round on re-runs.
 
-From a terminal, the first run asks: dedicated URL or path of an existing site, the domain,
-how many terminals, and which user the shells run as (created if missing). Answers go to
+From a terminal, the first run asks the site name first: if nginx already serves it on 443
+the terminals go under a path of it (asked, default `/term`), otherwise they get a dedicated
+URL. Then how many terminals, and which user the shells run as (created if missing, asked
+again if refused). A wrong answer is asked again, it does not stop the script. Answers go to
 `impostazioni.locale.conf` and are not asked again; delete that file to be asked again.
 Without a terminal the defaults apply. In path mode it also offers to adopt the site's client CA.
 

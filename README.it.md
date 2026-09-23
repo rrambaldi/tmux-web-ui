@@ -44,8 +44,10 @@ scp root@SERVER:/root/certs-client/primo-accesso.p12 .
 `conf/` o `N_TERM`, e riallinea tutto (con backup dei file che sovrascrive).
 `--salta-pacchetti` evita il giro di `dnf` nei rilanci.
 
-Da terminale, il primo lancio chiede: URL dedicato o path di un sito esistente, il dominio,
-quanti terminali e con quale utente girano le shell (se manca lo crea). Le risposte finiscono
+Da terminale, il primo lancio chiede prima il nome del sito: se nginx lo serve gia' sulla 443
+i terminali vanno sotto un suo path (chiesto, di default `/term`), altrimenti hanno un URL
+dedicato. Poi quanti terminali e con quale utente girano le shell (se manca lo crea; se dici
+di no, lo richiede). Una risposta sbagliata si richiede, non chiude lo script. Le risposte finiscono
 in `impostazioni.locale.conf` e non si richiedono; per rifarle basta cancellare quel file.
 Senza terminale valgono i default. Col path propone anche di adottare la CA client del sito.
  Su Fedora `ttyd` sta nei repo
