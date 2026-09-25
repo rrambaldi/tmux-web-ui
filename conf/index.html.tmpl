@@ -264,6 +264,10 @@
       padding: .55rem .9rem; background: #1a1a1a; border-bottom: 1px solid #333;
     }
     .aiuto-testata strong { color: var(--acc); font-size: .95rem; flex: 1 1 auto; }
+    /* Il marchio arriva dallo sprite: il neutro prende il color, l'accento
+       e' --acc. Qui solo misura e colore del neutro -- fill e stroke stanno
+       gia' nei tracciati, e i pannelli non si ricolorano uno per uno. */
+    .aiuto-testata .marchio { flex: 0 0 auto; width: 18px; height: 18px; color: #e8ebe9; }
     .aiuto-corpo { padding: .2rem .9rem 1rem; }
     .aiuto h3 {
       margin: 1rem 0 .4rem; font-size: .72rem; font-weight: 600;
@@ -598,21 +602,23 @@
       panes.appendChild(pane);
     });
 
-    // Un'icona dello sprite: un <svg> con dentro un <use> verso il <symbol>
-    // #i-<nome>. aria-hidden sempre: il nome del bottone lo dice il testo, o
-    // aria-label e title dove il testo non c'e'. focusable="false" perche' i
-    // browser vecchi di Microsoft ci fermano sopra il Tab.
+    // Un simbolo dello sprite: un <svg> con dentro un <use> verso il <symbol>.
+    // aria-hidden sempre: il nome del bottone lo dice il testo, o aria-label
+    // e title dove il testo non c'e', e il marchio e' solo un disegno.
+    // focusable="false" perche' i browser vecchi di Microsoft ci fermano
+    // sopra il Tab.
     var SVG = 'http://www.w3.org/2000/svg';
-    function icona(nome) {
+    function simbolo(id, classe) {
       var svg = document.createElementNS(SVG, 'svg');
-      svg.setAttribute('class', 'ico');
+      svg.setAttribute('class', classe);
       svg.setAttribute('aria-hidden', 'true');
       svg.setAttribute('focusable', 'false');
       var use = document.createElementNS(SVG, 'use');
-      use.setAttribute('href', '#i-' + nome);
+      use.setAttribute('href', '#' + id);
       svg.appendChild(use);
       return svg;
     }
+    function icona(nome) { return simbolo('i-' + nome, 'ico'); }
 
     // Icona + etichetta dentro un bottone (o qualunque elemento): un'unica
     // forma per tutti, cosi' nessun bottone resta con un disegno diverso
@@ -2294,7 +2300,7 @@
         { gesto: 'doppio click sul tab', che: 'rinomina quel tab, come Ctrl+cifra' },
         { gesto: 'sul tab, o terzo tasto', icona: 'chiudi', che: 'chiude il tab, come Ctrl+Alt+W' },
         { gesto: 'trascina il tab', che: 'cambia l\'ordine dei terminali' },
-        { tasti: ['Ctrl+Alt+N'], che: 'nome dei tab: titolo dell\'applicazione, comando in esecuzione, solo i nomi scritti da te (come il bottone col cartellino)' }
+        { tasti: ['Ctrl+Alt+N'], che: 'nome dei tab: titolo dell\'applicazione, comando in esecuzione, solo i nomi scritti da te (come il bottone Titolo / Comando / Nomi miei)' }
       ] },
       { titolo: 'Piu\' terminali insieme', voci: [
         { tasti: ['Ctrl+Alt+G'], che: 'uno solo → 2 → 4 → 6, fra i formati che lo schermo regge' },
@@ -2310,7 +2316,7 @@
       ] },
       { titolo: 'Bottoni in testata', voci: [
         { gesto: 'n liberi', icona: 'liberi', che: 'la fila dei terminali liberi, quelli senza un tab; il bottone sparisce quando sono tutti aperti' },
-        { gesto: 'A›a  a›A', che: 'caratteri piu\' piccoli e piu\' grandi; la scelta batte l\'automatico e resta su questo browser' },
+        { gesto: 'Testo più piccolo / più grande', icona: 'testo-meno', che: 'caratteri piu\' piccoli e piu\' grandi; la scelta batte l\'automatico e resta su questo browser' },
         { gesto: 'Titolo / Comando / Nomi miei', icona: 'nome-tab', che: 'da dove viene il nome dei tab. L\'automatico ha la precedenza sui nomi scritti a mano, che restano salvati e tornano appena il terminale non ha un titolo suo' },
         { gesto: 'Griglia', icona: 'griglia-4', che: 'quanti terminali a schermo. Le celle si riempiono con i tab in testata, percio\' compare dove c\'e\' spazio e da due terminali aperti in su' },
         { gesto: 'Tasti', icona: 'tasti', che: 'la barra con Esc, Tab, frecce e PagSu/PagGiu, per le tastiere che non li hanno' },
@@ -2343,6 +2349,9 @@
       bChiudi.type = 'button';
       bChiudi.className = 'bottone-gela';
       bChiudi.textContent = 'Chiudi (Esc)';
+      // Il marchio piccolo, quello senza prompt: a 18 px il prompt sarebbe
+      // una macchia.
+      testata.appendChild(simbolo('marchio-piccolo', 'marchio'));
       testata.appendChild(titolo);
       testata.appendChild(bChiudi);
 
