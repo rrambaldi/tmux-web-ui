@@ -15,7 +15,9 @@
        hanno un font-family esplicito piu' sotto e non lo ereditano da qui. [RR] -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <!-- JetBrains Mono 700 solo per il nome a caratteri fissi della firma
+       (wordmark-mono della tavola): un peso solo, per otto segni. -->
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
   <style>
     html, body {
       height: 100%; margin: 0; background-color: #121212; color: #fff; overflow: hidden;
@@ -229,13 +231,14 @@
       width: 100%; text-align: center; margin: 0 0 .5rem;
       text-transform: none; letter-spacing: 0; font-size: .85rem;
     }
-    /* Il marchio sta sopra la nota, su una riga sua: la nota e' larga il
-       100% e va a capo da se'. Grande solo qui, e con un quarto del lato
-       libero intorno, come vuole il marchio. */
-    .scatola .marchio { display: none; }
-    body.senza-tab .scatola .marchio {
-      display: block; width: 56px; height: 56px; margin-bottom: .5rem; color: #e8ebe9;
+    /* Senza tab la pagina si presenta con la firma (vedi .firma, nella
+       finestra dell'aiuto) in grande, su una riga sua sopra la nota. Grande
+       solo qui: e' l'unico posto "di benvenuto" della pagina. */
+    .scatola .firma { display: none; }
+    body.senza-tab .scatola .firma {
+      display: flex; flex: 0 0 100%; justify-content: center; margin-bottom: 1.25rem; font-size: 4.5rem;
     }
+    body.schermo-piccolo.senza-tab .scatola .firma { font-size: 2.75rem; }
     body.senza-tab .chip { font-size: 1rem; padding: .5rem .95rem; gap: .5em; border-radius: 4px; }
     body.senza-tab .chip .ico { width: 20px; height: 20px; stroke-width: 1.9; }
     body.senza-tab .chip .etichetta { max-width: 18ch; }
@@ -286,10 +289,50 @@
       padding: .55rem .9rem; background: #1a1a1a; border-bottom: 1px solid #333;
     }
     .aiuto-testata strong { color: var(--acc); font-size: .95rem; flex: 1 1 auto; }
-    /* Il marchio arriva dallo sprite: il neutro prende il color, l'accento
-       e' --acc. Qui solo misura e colore del neutro -- fill e stroke stanno
-       gia' nei tracciati, e i pannelli non si ricolorano uno per uno. */
-    .aiuto-testata .marchio { flex: 0 0 auto; width: 24px; height: 24px; color: #e8ebe9; }
+    /* La firma: il marchio a sinistra, a destra il nome a caratteri fissi
+       della tavola (wordmark-mono) e sotto il motto. Tutto in em del corpo
+       del nome, cosi' ogni posto ne fissa solo il font-size: il marchio e'
+       alto quanto nome e motto insieme, lo spazio accanto un terzo del corpo
+       come nel lockup della tavola. Il neutro del marchio prende il color,
+       l'accento e' --acc: fill e stroke stanno gia' nei tracciati dello
+       sprite. */
+    .firma {
+      flex: 0 0 auto; display: inline-flex; align-items: center; gap: .333em;
+      font-size: 2.5rem; color: #e8ebe9;
+    }
+    .firma .marchio { flex: 0 0 auto; width: 1.43em; height: 1.43em; }
+    .firma-testo { display: flex; flex-direction: column; gap: .12em; }
+    /* Il nome come lo scriverebbe un terminale: il prompt, il nome, il
+       cursore. Il nome e' testo e non un tracciato, cosi' lo legge anche uno
+       screen reader; prompt e cursore sono disegno. Il cursore e' largo come
+       una lettera e alto quasi quanto il corpo. */
+    .nome-fisso {
+      display: flex; align-items: center; gap: .074em;
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-weight: 700; letter-spacing: -.02em; line-height: 1; color: #f2f4f3;
+    }
+    .nome-fisso .prompt { color: var(--acc); }
+    .nome-fisso .cursore {
+      display: inline-block; width: .556em; height: .926em; border-radius: .056em; background: var(--acc);
+    }
+    /* Il motto largo quanto il nome: width 0 lo toglie dal conto della
+       larghezza della colonna, che cosi' la decide il nome, e min-width 100%
+       lo riallarga fin li'. Il corpo e' quello che lo tiene su una riga, il
+       justify mette gli ultimi pixel negli spazi fra le parole. */
+    .firma-motto {
+      width: 0; min-width: 100%; font-size: .265em; font-weight: 500; line-height: 1.2; color: #9aa19e;
+      text-align: justify; text-align-last: justify;
+    }
+    /* Il nome della finestra passa in seconda fila, dietro un separatore:
+       la testata e' della firma. Sul telefono accanto alla firma non ci sta:
+       il titolo lo fa lei, e Chiudi resta a destra da solo. */
+    .aiuto-testata .firma + strong {
+      color: #9a9a9a; font-size: .85rem; font-weight: 600;
+      padding-left: .6rem; border-left: 1px solid #363636;
+    }
+    .aiuto-testata .bottone-gela { margin-left: auto; }
+    body.schermo-piccolo .aiuto-testata .firma { font-size: 2rem; }
+    body.schermo-piccolo .aiuto-testata strong { display: none; }
     .aiuto-corpo { padding: .2rem .9rem 1rem; }
     .aiuto h3 {
       margin: 1rem 0 .4rem; font-size: .72rem; font-weight: 600;
@@ -646,6 +689,37 @@
     }
     function icona(nome) { return simbolo('i-' + nome, 'ico'); }
 
+    // La firma: il marchio, e accanto il nome a caratteri fissi col motto
+    // sotto. Una forma sola per la testata dell'aiuto e per la pagina senza
+    // tab: la misura la decide il CSS. Prompt e cursore sono aria-hidden,
+    // cosi' uno screen reader legge solo "tmuxify" e il motto.
+    function firma() {
+      var f = document.createElement('span');
+      f.className = 'firma';
+      f.appendChild(simbolo('marchio', 'marchio'));
+      var testo = document.createElement('span');
+      testo.className = 'firma-testo';
+      var nome = document.createElement('span');
+      nome.className = 'nome-fisso';
+      var prompt = document.createElement('span');
+      prompt.className = 'prompt';
+      prompt.setAttribute('aria-hidden', 'true');
+      prompt.textContent = '>';
+      var cursore = document.createElement('span');
+      cursore.className = 'cursore';
+      cursore.setAttribute('aria-hidden', 'true');
+      nome.appendChild(prompt);
+      nome.appendChild(document.createTextNode('tmuxify'));
+      nome.appendChild(cursore);
+      testo.appendChild(nome);
+      var motto = document.createElement('span');
+      motto.className = 'firma-motto';
+      motto.textContent = 'Terminale persistente. Sessioni connesse.';
+      testo.appendChild(motto);
+      f.appendChild(testo);
+      return f;
+    }
+
     // Icona + etichetta dentro un bottone (o qualunque elemento): un'unica
     // forma per tutti, cosi' nessun bottone resta con un disegno diverso
     // dagli altri. Ritorna lo <span> del testo, per chi deve aggiornarlo dopo
@@ -989,10 +1063,11 @@
     // ci torna appena la shell muore. Appena installato -- o dopo un riavvio
     // del servizio, quando le sessioni sono tutte nuove -- sono tutti qui. [RR]
     var scatola = document.getElementById('scatola');
-    // Il marchio grande, che si vede solo con la testata vuota (vedi il CSS):
-    // e' l'unico posto "di benvenuto" della pagina. Con dei tab aperti resta
-    // quello piccolo in testa alla fila, e lo spazio e' dei terminali.
-    scatola.appendChild(simbolo('marchio', 'marchio'));
+    // Il marchio grande col nome e il motto, che si vede solo con la testata
+    // vuota (vedi il CSS): e' l'unico posto "di benvenuto" della pagina. Con
+    // dei tab aperti resta quello piccolo in testa alla fila, e lo spazio e'
+    // dei terminali.
+    scatola.appendChild(firma());
     var notaScatola = document.createElement('span');
     notaScatola.className = 'scatola-nota';
     scatola.appendChild(notaScatola);
@@ -2380,9 +2455,7 @@
       bChiudi.type = 'button';
       bChiudi.className = 'bottone-gela';
       bChiudi.textContent = 'Chiudi (Esc)';
-      // Il marchio intero, col prompt: a 24 px ci sta, e qui c'e' spazio per
-      // farlo vedere.
-      testata.appendChild(simbolo('marchio', 'marchio'));
+      testata.appendChild(firma());
       testata.appendChild(titolo);
       testata.appendChild(bChiudi);
 
@@ -2850,6 +2923,12 @@
           if (!eOverlay(nodo)) return;
           nodo.style.fontFamily = SANS;
           var testo = nodo.textContent || '';
+          // La forbice e' l'avviso di ttyd per la copia su selezione: la fa
+          // lui, dentro l'iframe, e la pagina non lo saprebbe. Con questo
+          // anche la selezione col mouse si legge su Congela, come la copia
+          // di OSC 52 e di Ctrl+Ins. ttyd la mostra anche se execCommand non
+          // ce l'ha fatta, quindi qui l'esito e' sempre "copiato".
+          if (testo === '✂') { avvisaCopia(true); return; }
           // La spia prima dei controlli sulla caduta: deve seguire anche
           // "Reconnected", che caduta non e'. L'ordine conta: "Press <invio>
           // to Reconnect" e' lo scollegato che aspetta un tasto, gli altri due
