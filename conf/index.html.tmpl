@@ -10,10 +10,6 @@
        caricamento. Senza icone qui non compare niente. [RR] -->
 @ICONE@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Icone piatte e uniformi per i bottoni: prima erano glifi Unicode (⌨ ❄ ⊞ ⇱ ▤ ?),
-       che ogni sistema disegna a modo suo -- alcuni piatti, altri con ombra o a
-       colori come emoji. Con un font di icone sono tutte lo stesso tratto. [RR] -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <!-- Manrope per titoli e bottoni: al posto del sans-serif di sistema di
        Bootstrap. I terminali e il testo selezionabile restano monospace, che
        hanno un font-family esplicito piu' sotto e non lo ereditano da qui. [RR] -->
@@ -84,9 +80,15 @@
       font-size: .78rem; padding: .15rem .5rem; cursor: pointer; white-space: nowrap;
       display: inline-flex; align-items: center; gap: .35em;
     }
-    /* le icone del font sono piu' scure del testo di default: senza questa
-       riga sembravano spente anche sui bottoni "accesi". [RR] */
-    .bottone-gela .bi, .gelo-barra strong .bi { color: inherit; }
+    /* Le icone sono i <symbol> dello sprite che sta sotto <body>: nei
+       tracciati c'e' solo la forma, il tratto lo decide questa regola. Cosi'
+       lo spessore segue la misura -- 2 a 16 px, 1,9 a 20 -- senza ridisegnare
+       niente, e il colore e' quello del testo intorno: su un bottone acceso
+       l'icona si accende con lui. */
+    .ico { width: 16px; height: 16px; flex: 0 0 auto; vertical-align: -3px;
+           fill: none; stroke: currentColor; stroke-width: 2;
+           stroke-linecap: round; stroke-linejoin: round; }
+    .ico-20 { width: 20px; height: 20px; stroke-width: 1.9; }
     .bottone-gela:hover { background: #333; color: #fff; }
     /* Esito di una copia, per un secondo: la scritta da sola non si notava. */
     .bottone-gela.copiato, .bottone-gela.copiato:hover {
@@ -358,6 +360,13 @@
   </style>
 </head>
 <body>
+  <!-- Le icone e il marchio, ognuno come <symbol>: ce li mette install.sh
+       copiando design/icone/sprite.svg, come fa con la licenza. Il sorgente e'
+       design/icone/icone.json, da cui design/esporta.py rigenera lo sprite:
+       una copia scritta a mano qui se ne allontanerebbe al primo ritocco. In
+       linea nella pagina, cosi' <use href="#i-..."> li trova senza un CDN e
+       senza una richiesta in piu'. -->
+@SPRITE@
 
   <!-- Barra dei TAB -->
   <ul class="nav nav-tabs" id="terminalTabs" role="tablist"></ul>
@@ -553,20 +562,40 @@
       panes.appendChild(pane);
     });
 
+    // Un'icona dello sprite: un <svg> con dentro un <use> verso il <symbol>
+    // #i-<nome>. aria-hidden sempre: il nome del bottone lo dice il testo, o
+    // aria-label e title dove il testo non c'e'. focusable="false" perche' i
+    // browser vecchi di Microsoft ci fermano sopra il Tab.
+    var SVG = 'http://www.w3.org/2000/svg';
+    function icona(nome) {
+      var svg = document.createElementNS(SVG, 'svg');
+      svg.setAttribute('class', 'ico');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.setAttribute('focusable', 'false');
+      var use = document.createElementNS(SVG, 'use');
+      use.setAttribute('href', '#i-' + nome);
+      svg.appendChild(use);
+      return svg;
+    }
+
     // Icona + etichetta dentro un bottone (o qualunque elemento): un'unica
-    // forma per tutti, cosi' nessun bottone resta col vecchio glifo Unicode
-    // mentre gli altri passano al font di icone. Ritorna lo <span> del testo,
-    // per chi deve aggiornarlo dopo (il conto dei liberi, lo stato di Congela)
-    // senza ricreare anche l'icona. [RR]
-    function conIcona(elemento, classeIcona, testo) {
-      var i = document.createElement('i');
-      i.className = 'bi ' + classeIcona;
-      i.setAttribute('aria-hidden', 'true');
-      elemento.appendChild(i);
+    // forma per tutti, cosi' nessun bottone resta con un disegno diverso
+    // dagli altri. Ritorna lo <span> del testo, per chi deve aggiornarlo dopo
+    // (il conto dei liberi, lo stato di Congela) senza ricreare anche l'icona.
+    function conIcona(elemento, nome, testo) {
+      elemento.appendChild(icona(nome));
       var span = document.createElement('span');
+      span.className = 'testo';
       span.textContent = testo;
       elemento.appendChild(span);
       return span;
+    }
+
+    // Le icone che mostrano uno stato (griglia, barra tmux, Congela/Riprendi)
+    // cambiano disegno: basta l'href del <use> che c'e' gia'.
+    function impostaIcona(elemento, nome) {
+      var use = elemento.querySelector('.ico use');
+      if (use) use.setAttribute('href', '#i-' + nome);
     }
 
     var barraDx = document.createElement('li');
@@ -576,7 +605,7 @@
     bottoneTastiera.className = 'bottone-gela';
     // Non la sola icona: da sola, in mezzo a dieci tab, non si capisce che
     // sia un interruttore ne' di cosa.
-    conIcona(bottoneTastiera, 'bi-keyboard', 'Tasti');
+    conIcona(bottoneTastiera, 'tasti', 'Tasti');
 
     // Modalita' storia = copy-mode di tmux, quella di Ctrl-B [. Il bottone sta
     // in TESTATA e non nel footer, cosi' c'e' anche sul desktop dove la barra
@@ -585,7 +614,7 @@
     var bottoneStoria = document.createElement('button');
     bottoneStoria.type = 'button';
     bottoneStoria.className = 'bottone-gela';
-    conIcona(bottoneStoria, 'bi-clock-history', 'Storia');
+    conIcona(bottoneStoria, 'storia', 'Storia');
 
     // La status-bar di tmux, quella in fondo al TERMINALE (non a questa
     // pagina): tmux gira con UN SOLO SERVER condiviso da tutti i terminali
@@ -602,7 +631,7 @@
     var bottoneBarra = document.createElement('button');
     bottoneBarra.type = 'button';
     bottoneBarra.className = 'bottone-gela';
-    var etichettaBarra = conIcona(bottoneBarra, 'bi-layout-text-window-reverse', 'Barra tmux');
+    var etichettaBarra = conIcona(bottoneBarra, 'barra-tmux', 'Barra tmux');
 
     function mostraBarraTmux() {
       bottoneBarra.classList.toggle('acceso', !barraTmuxVisibile);
@@ -660,12 +689,12 @@
     var bottoneGriglia = document.createElement('button');
     bottoneGriglia.type = 'button';
     bottoneGriglia.className = 'bottone-gela';
-    var etichettaGriglia = conIcona(bottoneGriglia, 'bi-grid-3x3-gap', 'Griglia');
+    var etichettaGriglia = conIcona(bottoneGriglia, 'griglia-1', 'Griglia');
 
     var bottoneGela = document.createElement('button');
     bottoneGela.type = 'button';
     bottoneGela.className = 'bottone-gela';
-    var etichettaGela = conIcona(bottoneGela, 'bi-snow2', 'Congela');
+    var etichettaGela = conIcona(bottoneGela, 'congela', 'Congela');
     bottoneGela.title = 'Blocca l\'input e mostra il testo selezionabile (Ctrl+Alt+C)';
     // Le scorciatoie stavano in un rigo di testo qui in testata: lungo, e
     // nascosto proprio sugli schermi stretti dove servirebbe. Ora stanno nella
@@ -677,7 +706,7 @@
     var bottoneTitoli = document.createElement('button');
     bottoneTitoli.type = 'button';
     bottoneTitoli.className = 'bottone-gela';
-    var etichettaTitoli = conIcona(bottoneTitoli, 'bi-tag', '');
+    var etichettaTitoli = conIcona(bottoneTitoli, 'nome-tab', '');
     // Qui e non lassu' con commutaModoTitolo(): il bottone nasce a questo
     // punto del file, e agganciarsi prima vuol dire agganciarsi a undefined.
     bottoneTitoli.addEventListener('click', commutaModoTitolo);
@@ -685,7 +714,7 @@
     var bottoneAiuto = document.createElement('button');
     bottoneAiuto.type = 'button';
     bottoneAiuto.className = 'bottone-gela';
-    conIcona(bottoneAiuto, 'bi-question-circle', 'Aiuto');
+    conIcona(bottoneAiuto, 'aiuto', 'Aiuto');
 
     // Mostra e nasconde la fila dei terminali liberi. Porta il CONTO, non solo
     // un glifo: nascosta la fila, e' l'unica cosa che dice che di terminali da
@@ -694,7 +723,7 @@
     var bottoneScatola = document.createElement('button');
     bottoneScatola.type = 'button';
     bottoneScatola.className = 'bottone-gela';
-    var etichettaScatola = conIcona(bottoneScatola, 'bi-box-seam', '');
+    var etichettaScatola = conIcona(bottoneScatola, 'liberi', '');
 
     barraDx.appendChild(bottoneScatola);
     barraDx.appendChild(bottoneGiu);
@@ -742,9 +771,7 @@
       // titolo del tab che nomina il \u2715 accanto agli altri gesti.
       var x = document.createElement('span');
       x.className = 'chiudi';
-      var xIcon = document.createElement('i');
-      xIcon.className = 'bi bi-x-lg';
-      x.appendChild(xIcon);
+      x.appendChild(icona('chiudi'));
       x.title = 'Chiudi il tab: il terminale torna fra i liberi (Ctrl+Alt+W)';
       x.setAttribute('aria-hidden', 'true');
       btn.appendChild(x);
@@ -1143,7 +1170,7 @@
       barra.className = 'gelo-barra';
 
       var titolo = document.createElement('strong');
-      conIcona(titolo, 'bi-snow2', 'Congelato');
+      conIcona(titolo, 'congela', 'Congelato');
 
       var chk = document.createElement('input');
       chk.type = 'checkbox';
@@ -2054,7 +2081,7 @@
 
     var spia = document.createElement('span');
     spia.className = 'spia';
-    conIcona(spia, 'bi-clock-history', 'storia · le frecce scorrono');
+    conIcona(spia, 'storia', 'storia · le frecce scorrono');
     tastiera.appendChild(spia);
 
     TASTI.forEach(function (t) {
@@ -2124,7 +2151,7 @@
       { titolo: 'I terminali liberi', voci: [
         { gesto: 'clic su un terminale della fila', che: 'lo apre: il tab compare in coda alla testata e diventa quello davanti' },
         { gesto: 'exit o Ctrl-D nel terminale', che: 'la shell muore, il tab si chiude e il terminale torna in fila col nome di serie' },
-        { gesto: 'n liberi', icona: 'bi-box-seam', che: 'mostra e nasconde la fila; il numero dice quanti terminali sono liberi. Con la testata vuota la fila si vede comunque' }
+        { gesto: 'n liberi', icona: 'liberi', che: 'mostra e nasconde la fila; il numero dice quanti terminali sono liberi. Con la testata vuota la fila si vede comunque' }
       ] },
       { titolo: 'Terminali aperti', voci: [
         { tasti: ['Shift+←', 'Shift+→'], che: 'terminale precedente e successivo, nell\'ordine dei tab' },
@@ -2132,7 +2159,7 @@
         { tasti: ['Ctrl+1', 'Ctrl+9'], che: 'rinomina il tab in quella posizione, Ctrl+0 l\'ultimo: Invio conferma, Esc annulla, vuoto rimette il nome di serie' },
         { tasti: ['Ctrl+Alt+W'], che: 'chiude il tab davanti: il terminale torna fra i liberi, e quello che gira dentro continua a girare' },
         { gesto: 'doppio click sul tab', che: 'rinomina quel tab, come Ctrl+cifra' },
-        { gesto: 'sul tab, o terzo tasto', icona: 'bi-x-lg', che: 'chiude il tab, come Ctrl+Alt+W' },
+        { gesto: 'sul tab, o terzo tasto', icona: 'chiudi', che: 'chiude il tab, come Ctrl+Alt+W' },
         { gesto: 'trascina il tab', che: 'cambia l\'ordine dei terminali' },
         { tasti: ['Ctrl+Alt+N'], che: 'nome dei tab: titolo dell\'applicazione, comando in esecuzione, solo i nomi scritti da te (come il bottone col cartellino)' }
       ] },
@@ -2149,14 +2176,14 @@
         { tasti: ['Esc'], che: 'a terminale congelato, riprende' }
       ] },
       { titolo: 'Bottoni in testata', voci: [
-        { gesto: 'n liberi', icona: 'bi-box-seam', che: 'la fila dei terminali liberi, quelli senza un tab; il bottone sparisce quando sono tutti aperti' },
+        { gesto: 'n liberi', icona: 'liberi', che: 'la fila dei terminali liberi, quelli senza un tab; il bottone sparisce quando sono tutti aperti' },
         { gesto: 'A›a  a›A', che: 'caratteri piu\' piccoli e piu\' grandi; la scelta batte l\'automatico e resta su questo browser' },
-        { gesto: 'Titolo / Comando / Nomi miei', icona: 'bi-tag', che: 'da dove viene il nome dei tab. L\'automatico ha la precedenza sui nomi scritti a mano, che restano salvati e tornano appena il terminale non ha un titolo suo' },
-        { gesto: 'Griglia', icona: 'bi-grid-3x3-gap', che: 'quanti terminali a schermo. Le celle si riempiono con i tab in testata, percio\' compare dove c\'e\' spazio e da due terminali aperti in su' },
-        { gesto: 'Tasti', icona: 'bi-keyboard', che: 'la barra con Esc, Tab, frecce e PagSu/PagGiu, per le tastiere che non li hanno' },
-        { gesto: 'Storia', icona: 'bi-clock-history', che: 'entra e esce dalla copy-mode di tmux (Ctrl-B [): li\' le frecce scorrono lo scrollback' },
-        { gesto: 'Barra tmux', icona: 'bi-layout-text-window-reverse', che: 'mostra e nasconde la status-bar di tmux in fondo al terminale davanti; vale per tutti i terminali insieme, perche\' condividono lo stesso server tmux' },
-        { gesto: 'Congela', icona: 'bi-snow2', che: 'come Ctrl+Alt+C' }
+        { gesto: 'Titolo / Comando / Nomi miei', icona: 'nome-tab', che: 'da dove viene il nome dei tab. L\'automatico ha la precedenza sui nomi scritti a mano, che restano salvati e tornano appena il terminale non ha un titolo suo' },
+        { gesto: 'Griglia', icona: 'griglia-4', che: 'quanti terminali a schermo. Le celle si riempiono con i tab in testata, percio\' compare dove c\'e\' spazio e da due terminali aperti in su' },
+        { gesto: 'Tasti', icona: 'tasti', che: 'la barra con Esc, Tab, frecce e PagSu/PagGiu, per le tastiere che non li hanno' },
+        { gesto: 'Storia', icona: 'storia', che: 'entra e esce dalla copy-mode di tmux (Ctrl-B [): li\' le frecce scorrono lo scrollback' },
+        { gesto: 'Barra tmux', icona: 'barra-tmux', che: 'mostra e nasconde la status-bar di tmux in fondo al terminale davanti; vale per tutti i terminali insieme, perche\' condividono lo stesso server tmux' },
+        { gesto: 'Congela', icona: 'congela', che: 'come Ctrl+Alt+C' }
       ] },
       { titolo: 'Questa finestra', voci: [
         { tasti: ['Ctrl+H'], che: 'apre e chiude questo elenco' },

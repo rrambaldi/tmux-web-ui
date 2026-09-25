@@ -444,8 +444,20 @@ else
     printf 'Licenza MIT: il testo sta nel file LICENSE del progetto.\n' > "$TMP/licenza"
 fi
 
+# Le icone dei bottoni, e il marchio, vanno dentro la pagina come la licenza:
+# lo sprite lo genera design/esporta.py da design/icone/icone.json, e una
+# copia a mano nel modello se ne allontanerebbe al primo ritocco. Se manca,
+# la pagina funziona lo stesso con i bottoni senza icona: non e' un motivo
+# per fermare l'installazione, ma va detto alla fine, dove lo si legge.
+SPRITE="$RADICE/design/icone/sprite.svg"
+if [ ! -f "$SPRITE" ]; then
+    SPRITE="$TMP/sprite"
+    : > "$SPRITE"
+fi
+
 [ -f "$WEBROOT/index.html" ] && cp -p "$WEBROOT/index.html" "$WEBROOT/index.html.bak-$(date +%Y%m%d%H%M%S)"
 sed -e "/@ICONE@/r $TMP/icone" -e "/@ICONE@/d" \
+    -e "/@SPRITE@/r $SPRITE" -e "/@SPRITE@/d" \
     -e "/@TERMINALS@/r $TMP/terminals" -e "/@TERMINALS@/d" \
     -e "/@LICENZA@/r $TMP/licenza" -e "/@LICENZA@/d" \
     -e "s|@TITOLO@|$TITOLO|g" -e "s|@PREFISSO@|$PREFISSO|g" \
@@ -680,3 +692,8 @@ Un certificato in piu' per ogni dispositivo:
   certs/emetti-client.sh telefono-$UTENTE
 
 FINE
+
+if [ "$SPRITE" = "$TMP/sprite" ]; then
+    echo "NOTA: manca design/icone/sprite.svg, i bottoni della dashboard sono senza icone."
+    echo "Si rigenera con design/esporta.py --solo-icone (vedi design/ICONE-E-MARCHIO.md), poi si rilancia."
+fi
