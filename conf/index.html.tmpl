@@ -133,13 +133,12 @@
       padding: .35rem .6rem; background: #16324a; border-bottom: 1px solid #27506f;
       font-size: .8rem; color: #cde;
     }
-    .gelo-barra button {
-      background: #1e1e1e; color: #ddd; border: 1px solid #456; border-radius: 3px;
-      font-size: .78rem; padding: .15rem .55rem; cursor: pointer;
-    }
-    .gelo-barra button:hover { background: #2a2a2a; color: #fff; }
+    /* I bottoni della barra sono quelli della testata, sui toni blu della
+       barra: stessa forma, stesso comportamento, e "Unisci righe" acceso ha
+       l'accento di ogni altra cosa accesa della pagina. */
+    .gelo-barra .bottone-gela { height: 26px; background: #1b2b38; border-color: #456578; }
+    .gelo-barra .bottone-gela:not(.acceso):hover { background: #243a4c; color: #fff; }
     .gelo-barra strong { display: inline-flex; align-items: center; gap: .35em; }
-    .gelo-barra label { display: flex; align-items: center; gap: .3rem; cursor: pointer; user-select: none; }
     .gelo-nota { color: #8ab; font-size: .75rem; }
     .gelo-testo {
       flex: 1 1 auto; overflow: auto; margin: 0; padding: .5rem .7rem;
@@ -1257,28 +1256,31 @@
       var titolo = document.createElement('strong');
       conIcona(titolo, 'congela', 'Congelato');
 
-      var chk = document.createElement('input');
-      chk.type = 'checkbox';
-      chk.id = 'gelo-unwrap';
-      var lab = document.createElement('label');
-      lab.htmlFor = chk.id;
-      lab.appendChild(chk);
-      lab.appendChild(document.createTextNode('ricongiungi le righe spezzate'));
+      // Un interruttore e non una casella: sta in fila con gli altri bottoni
+      // della barra, e acceso si riconosce come ogni altro stato acceso.
+      var bUnisci = document.createElement('button');
+      bUnisci.type = 'button';
+      bUnisci.className = 'bottone-gela';
+      bUnisci.setAttribute('aria-pressed', 'false');
+      bUnisci.title = 'Ricongiunge le righe che il terminale ha spezzato andando a capo';
+      conIcona(bUnisci, 'a-capo', 'Unisci righe');
 
       var bCopia = document.createElement('button');
       bCopia.type = 'button';
-      bCopia.textContent = 'Copia tutto';
+      bCopia.className = 'bottone-gela';
+      var testoCopia = conIcona(bCopia, 'copia', 'Copia tutto');
 
       var bChiudi = document.createElement('button');
       bChiudi.type = 'button';
-      bChiudi.textContent = 'Riprendi (Esc)';
+      bChiudi.className = 'bottone-gela';
+      conIcona(bChiudi, 'riprendi', 'Riprendi · Esc');
 
       var nota = document.createElement('span');
       nota.className = 'gelo-nota';
       nota.textContent = 'input bloccato · seleziona col mouse e Ctrl+C';
 
       barra.appendChild(titolo);
-      barra.appendChild(lab);
+      barra.appendChild(bUnisci);
       barra.appendChild(bCopia);
       barra.appendChild(bChiudi);
       barra.appendChild(nota);
@@ -1296,13 +1298,22 @@
 
       // Riscrivere il testo butta via la selezione in corso: e' inevitabile,
       // ma non se ne fa una nuova al posto di quella dell'utente.
-      chk.addEventListener('change', function () {
-        pre.textContent = schermata(term, chk.checked);
+      bUnisci.addEventListener('click', function () {
+        var unisci = bUnisci.getAttribute('aria-pressed') !== 'true';
+        bUnisci.setAttribute('aria-pressed', unisci ? 'true' : 'false');
+        bUnisci.classList.toggle('acceso', unisci);
+        pre.textContent = schermata(term, unisci);
       });
+      // L'esito sta sul bottone stesso, per un attimo: il segno di spunta se
+      // e' andata, e se no la scritta con l'icona di sempre.
       bCopia.addEventListener('click', function () {
         copiaTesto(pre.textContent, function (ok) {
-          bCopia.textContent = ok ? 'Copiato ✓' : 'Non riesco';
-          setTimeout(function () { bCopia.textContent = 'Copia tutto'; }, 1400);
+          testoCopia.textContent = ok ? 'Copiato' : 'Non riesco';
+          impostaIcona(bCopia, ok ? 'copiato' : 'copia');
+          setTimeout(function () {
+            testoCopia.textContent = 'Copia tutto';
+            impostaIcona(bCopia, 'copia');
+          }, 1400);
         });
       });
       bChiudi.addEventListener('click', scongela);
