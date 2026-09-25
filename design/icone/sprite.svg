@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-liberi" viewBox="0 0 24 24"><path d="M8 4.5h11a2 2 0 0 1 2 2V16M5 8.5h10a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2zM6.8 12.3l2.4 2.2-2.4 2.2M11 16.7h2.6"/></symbol>
+  <symbol id="i-testo-meno" viewBox="0 0 24 24"><path d="M2.5 19.5L7.5 5l5 14.5M4.4 14.5h6.2M15 19.5l3-8.5 3 8.5M16.1 16.5h3.8"/></symbol>
+  <symbol id="i-testo-piu" viewBox="0 0 24 24"><path d="M3 19.5l3-8.5 3 8.5M4.1 16.5h3.8M11.5 19.5L16.5 5l5 14.5M13.4 14.5h6.2"/></symbol>
+  <symbol id="i-nome-tab" viewBox="0 0 24 24"><path d="M2 19.5h20M4.5 19.5V7a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v12.5M8.5 10h7M12 10v5.5"/></symbol>
+  <symbol id="i-griglia-1" viewBox="0 0 24 24"><path d="M5.5 4h13a2.5 2.5 0 0 1 2.5 2.5v11a2.5 2.5 0 0 1 -2.5 2.5h-13a2.5 2.5 0 0 1 -2.5 -2.5v-11a2.5 2.5 0 0 1 2.5 -2.5z"/></symbol>
+  <symbol id="i-griglia-2" viewBox="0 0 24 24"><path d="M5.5 4h13a2.5 2.5 0 0 1 2.5 2.5v11a2.5 2.5 0 0 1 -2.5 2.5h-13a2.5 2.5 0 0 1 -2.5 -2.5v-11a2.5 2.5 0 0 1 2.5 -2.5zM12 4v16"/></symbol>
+  <symbol id="i-griglia-4" viewBox="0 0 24 24"><path d="M5.5 4h13a2.5 2.5 0 0 1 2.5 2.5v11a2.5 2.5 0 0 1 -2.5 2.5h-13a2.5 2.5 0 0 1 -2.5 -2.5v-11a2.5 2.5 0 0 1 2.5 -2.5zM12 4v16M3 12h18"/></symbol>
+  <symbol id="i-griglia-6" viewBox="0 0 24 24"><path d="M5.5 4h13a2.5 2.5 0 0 1 2.5 2.5v11a2.5 2.5 0 0 1 -2.5 2.5h-13a2.5 2.5 0 0 1 -2.5 -2.5v-11a2.5 2.5 0 0 1 2.5 -2.5zM9 4v16M15 4v16M3 12h18"/></symbol>
+  <symbol id="i-tasti" viewBox="0 0 24 24"><path d="M4.5 6h15a2.5 2.5 0 0 1 2.5 2.5v7a2.5 2.5 0 0 1 -2.5 2.5h-15a2.5 2.5 0 0 1 -2.5 -2.5v-7a2.5 2.5 0 0 1 2.5 -2.5zM6 10h.01M9.3 10h.01M12.6 10h.01M15.9 10h.01M18 10h.01M8 14h8"/></symbol>
+  <symbol id="i-storia" viewBox="0 0 24 24"><path d="M3 6.5h10M3 11.5h10M3 16.5h6.5M18 19V5M14.8 8.2L18 5l3.2 3.2"/></symbol>
+  <symbol id="i-barra-tmux" viewBox="0 0 24 24"><path d="M5.5 4h13a2.5 2.5 0 0 1 2.5 2.5v11a2.5 2.5 0 0 1 -2.5 2.5h-13a2.5 2.5 0 0 1 -2.5 -2.5v-11a2.5 2.5 0 0 1 2.5 -2.5zM3 15.5h18"/><path d="M3 15.5h18v2A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-barra-tmux-off" viewBox="0 0 24 24"><path d="M5.5 4h13a2.5 2.5 0 0 1 2.5 2.5v11a2.5 2.5 0 0 1 -2.5 2.5h-13a2.5 2.5 0 0 1 -2.5 -2.5v-11a2.5 2.5 0 0 1 2.5 -2.5zM6 15.5h.01M9 15.5h.01M12 15.5h.01M15 15.5h.01M18 15.5h.01"/></symbol>
+  <symbol id="i-congela" viewBox="0 0 24 24"><path d="M12 3L12 21M12 6.4L9.81 3.8M12 6.4L14.19 3.8M19.79 7.5L4.21 16.5M16.85 9.2L18.01 6.01M16.85 9.2L20.2 9.79M19.79 16.5L4.21 7.5M16.85 14.8L20.2 14.21M16.85 14.8L18.01 17.99M12 17.6L14.19 20.2M12 17.6L9.81 20.2M7.15 14.8L5.99 17.99M7.15 14.8L3.8 14.21M7.15 9.2L3.8 9.79M7.15 9.2L5.99 6.01"/></symbol>
+  <symbol id="i-aiuto" viewBox="0 0 24 24"><path d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-10a4 4 0 0 1 4 -4zM9.6 9.6a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2.9-1.2 1.7v.5M12 17h.01"/></symbol>
+  <symbol id="i-altro" viewBox="0 0 24 24"><path d="M6 10.5a1.5 1.5 0 1 0 0 3a1.5 1.5 0 1 0 0-3zM12 10.5a1.5 1.5 0 1 0 0 3a1.5 1.5 0 1 0 0-3zM18 10.5a1.5 1.5 0 1 0 0 3a1.5 1.5 0 1 0 0-3z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-chiudi" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-apri" viewBox="0 0 24 24"><path d="M5.5 4h13a2.5 2.5 0 0 1 2.5 2.5v11a2.5 2.5 0 0 1 -2.5 2.5h-13a2.5 2.5 0 0 1 -2.5 -2.5v-11a2.5 2.5 0 0 1 2.5 -2.5zM7 9l2.5 2.2L7 13.4M16 11.5v5M13.5 14h5"/></symbol>
+  <symbol id="i-trascina" viewBox="0 0 24 24"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"/></symbol>
+  <symbol id="i-terminale" viewBox="0 0 24 24"><path d="M5.5 4h13a2.5 2.5 0 0 1 2.5 2.5v11a2.5 2.5 0 0 1 -2.5 2.5h-13a2.5 2.5 0 0 1 -2.5 -2.5v-11a2.5 2.5 0 0 1 2.5 -2.5zM7 9.5l3 2.5-3 2.5M12 15h5"/></symbol>
+  <symbol id="i-copia" viewBox="0 0 24 24"><path d="M10.5 8.5h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2zM15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
+  <symbol id="i-copiato" viewBox="0 0 24 24"><path d="M4.5 12.5l5 5L19.5 7"/></symbol>
+  <symbol id="i-riprendi" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></symbol>
+  <symbol id="i-a-capo" viewBox="0 0 24 24"><path d="M3 6h18M3 12h14.5a3 3 0 0 1 0 6H12M14 15.8L11.8 18l2.2 2.2M3 18h5"/></symbol>
+  <symbol id="i-connesso" viewBox="0 0 24 24"><path d="M7.5 12a4.5 4.5 0 1 0 9 0a4.5 4.5 0 1 0 -9 0z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-riconnessione" viewBox="0 0 24 24"><path d="M12.63 6.03A6 6 0 0 1 15.53 7.15M17.48 9.56A6 6 0 0 1 17.97 12.63M16.85 15.53A6 6 0 0 1 14.44 17.48M11.37 17.97A6 6 0 0 1 8.47 16.85M6.52 14.44A6 6 0 0 1 6.03 11.37M7.15 8.47A6 6 0 0 1 9.56 6.52"/></symbol>
+  <symbol id="i-scollegato" viewBox="0 0 24 24"><path d="M6 12a6 6 0 1 0 12 0a6 6 0 1 0 -12 0zM7.8 16.2l8.4-8.4"/></symbol>
+  <symbol id="i-tab" viewBox="0 0 24 24"><path d="M3 12h13.5M12.5 8l4 4-4 4M20.5 6.5v11"/></symbol>
+  <symbol id="i-freccia-sx" viewBox="0 0 24 24"><path d="M14.5 6.5L9 12l5.5 5.5"/></symbol>
+  <symbol id="i-freccia-su" viewBox="0 0 24 24"><path d="M6.5 14.5L12 9l5.5 5.5"/></symbol>
+  <symbol id="i-freccia-giu" viewBox="0 0 24 24"><path d="M6.5 9.5L12 15l5.5-5.5"/></symbol>
+  <symbol id="i-freccia-dx" viewBox="0 0 24 24"><path d="M9.5 6.5L15 12l-5.5 5.5"/></symbol>
+  <symbol id="i-pag-su" viewBox="0 0 24 24"><path d="M6.5 12L12 6.5l5.5 5.5M6.5 17.5L12 12l5.5 5.5"/></symbol>
+  <symbol id="i-pag-giu" viewBox="0 0 24 24"><path d="M6.5 6.5L12 12l5.5-5.5M6.5 12L12 17.5l5.5-5.5"/></symbol>
+  <symbol id="i-certificato" viewBox="0 0 24 24"><path d="M12 3l7.5 2.8v5.6c0 4.6-3.1 8.2-7.5 9.6-4.4-1.4-7.5-5-7.5-9.6V5.8zM8.8 12.2l2.2 2.2 4.3-4.4"/></symbol>
+  <symbol id="i-licenza" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M8.5 13h7M8.5 16.5h5"/></symbol>
+  <symbol id="marchio" viewBox="0 0 48 48"><path style="fill:currentColor" d="M7.5 4H40.5A3.5 3.5 0 0 1 44 7.5V9.5A3.5 3.5 0 0 1 40.5 13H7.5A3.5 3.5 0 0 1 4 9.5V7.5A3.5 3.5 0 0 1 7.5 4ZM29.5 17H40.5A3.5 3.5 0 0 1 44 20.5V40.5A3.5 3.5 0 0 1 40.5 44H29.5A3.5 3.5 0 0 1 26 40.5V20.5A3.5 3.5 0 0 1 29.5 17Z"/><path style="fill:var(--acc, #4fae8c)" fill-rule="evenodd" d="M7.5 17H18.5A3.5 3.5 0 0 1 22 20.5V40.5A3.5 3.5 0 0 1 18.5 44H7.5A3.5 3.5 0 0 1 4 40.5V20.5A3.5 3.5 0 0 1 7.5 17ZM9.555 22.245L14.155 26.845A1.35 1.35 0 0 1 14.155 28.755L9.555 33.355A1.35 1.35 0 0 1 7.645 31.445L11.29 27.8L7.645 24.155A1.35 1.35 0 0 1 9.555 22.245ZM15.4 30.9H18.6A0.6 0.6 0 0 1 19.2 31.5V33A0.6 0.6 0 0 1 18.6 33.6H15.4A0.6 0.6 0 0 1 14.8 33V31.5A0.6 0.6 0 0 1 15.4 30.9Z"/></symbol>
+  <symbol id="marchio-piccolo" viewBox="0 0 48 48"><path style="fill:currentColor" d="M7.5 4H40.5A3.5 3.5 0 0 1 44 7.5V9.5A3.5 3.5 0 0 1 40.5 13H7.5A3.5 3.5 0 0 1 4 9.5V7.5A3.5 3.5 0 0 1 7.5 4ZM29.5 17H40.5A3.5 3.5 0 0 1 44 20.5V40.5A3.5 3.5 0 0 1 40.5 44H29.5A3.5 3.5 0 0 1 26 40.5V20.5A3.5 3.5 0 0 1 29.5 17Z"/><path style="fill:var(--acc, #4fae8c)" d="M7.5 17H18.5A3.5 3.5 0 0 1 22 20.5V40.5A3.5 3.5 0 0 1 18.5 44H7.5A3.5 3.5 0 0 1 4 40.5V20.5A3.5 3.5 0 0 1 7.5 17Z"/></symbol>
+</svg>
