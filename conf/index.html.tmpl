@@ -88,6 +88,13 @@
        riga sembravano spente anche sui bottoni "accesi". [RR] */
     .bottone-gela .bi, .gelo-barra strong .bi { color: inherit; }
     .bottone-gela:hover { background: #333; color: #fff; }
+    /* Esito di una copia, per un secondo: la scritta da sola non si notava. */
+    .bottone-gela.copiato, .bottone-gela.copiato:hover {
+      background: #1f6b35; color: #fff; border-color: #3ecf6a;
+    }
+    .bottone-gela.non-copiato, .bottone-gela.non-copiato:hover {
+      background: #8a1f1f; color: #fff; border-color: #ff6b6b;
+    }
     /* 'A-' e 'A+' dicevano quanto un segno di spunta: il verso adesso lo
        disegna la dimensione stessa delle due lettere, A>a rimpicciolisce e
        a>A ingrandisce. Niente da tradurre e niente da ricordare. [RR] */
@@ -1049,6 +1056,62 @@
       }
     }
 
+    // L'esito si legge sul bottone Congela, verde o rosso. Il timer si azzera
+    // a ogni copia: due copie di fila non si spengono a meta'.
+    var timerCopia = null;
+    function avvisaCopia(ok) {
+      etichettaGela.textContent = ok ? 'copiato' : 'non riesco';
+      bottoneGela.classList.toggle('copiato', ok);
+      bottoneGela.classList.toggle('non-copiato', !ok);
+      clearTimeout(timerCopia);
+      timerCopia = setTimeout(function () {
+        etichettaGela.textContent = 'Congela';
+        bottoneGela.classList.remove('copiato', 'non-copiato');
+      }, 1200);
+    }
+
+    // --- OSC 52: la copia fatta dal programma ---------------------------------
+    // Claude Code in modalita' fullscreen si prende il mouse: il trascinamento
+    // arriva a lui, non a xterm.js, e la selezione la fa lui. Al rilascio
+    // copia con `tmux load-buffer -w`, e il -w fa mandare a tmux, verso il
+    // terminale del client, ESC ] 52 ; ; <base64> BEL. Il client e' l'xterm.js
+    // di ttyd, che nella 1.7.7 un gestore per il 52 non ce l'ha: la sequenza
+    // veniva buttata e la copia spariva senza errori. E' il "col mouse non
+    // copia" con Claude. Verificato registrando la pty di un client tmux 3.5a:
+    // la sequenza esce anche con set-clipboard al valore di serie (external),
+    // quindi tmux non va toccato. Vale per chiunque usi OSC 52, non solo per
+    // Claude.
+    //
+    // Solo scrittura: la richiesta di LEGGERE ('?') si ignora, un programma nel
+    // terminale non deve poter leggere gli appunti del browser. Si scrive con
+    // il navigator dell'iframe, che e' dove sono il fuoco e il click appena
+    // fatto; il ripiego di copiaTesto no, perche' ruberebbe il fuoco al
+    // terminale. [RR]
+    function agganciaAppunti(pane, quanti) {
+      var term = termDi(pane);
+      if (!term) {
+        if (quanti > 0) setTimeout(function () { agganciaAppunti(pane, quanti - 1); }, 100);
+        return;
+      }
+      if (term.__appuntiAgganciati || !term.parser) return;
+      term.__appuntiAgganciati = true;
+      var w = pane.querySelector('iframe').contentWindow;
+      term.parser.registerOscHandler(52, function (dati) {
+        var b64 = dati.slice(dati.indexOf(';') + 1);
+        if (b64 === '?') return true;
+        var testo;
+        try {
+          testo = new TextDecoder().decode(
+            Uint8Array.from(atob(b64), function (c) { return c.charCodeAt(0); }));
+        } catch (err) { return true; }
+        var cb = w.navigator.clipboard;
+        if (!cb || !cb.writeText) { avvisaCopia(false); return true; }
+        cb.writeText(testo).then(function () { avvisaCopia(true); },
+                                 function () { avvisaCopia(false); });
+        return true;
+      });
+    }
+
     // --- congelamento --------------------------------------------------------
     // L'input viene bloccato con disableStdin, poi il testo della schermata
     // viene mostrato in un <pre>: essendo testo HTML normale, selezione e
@@ -1301,6 +1364,7 @@
         agganciaCella(f, pane);
         agganciaOverlay(f, pane.id.slice(4));
         agganciaMorte(pane, pane.id.slice(4), 100);
+        agganciaAppunti(pane, 100);
         agganciaTitolo(f, pane.id.slice(4));
         attendiTerminale(pane, 100);
         if (pane.classList.contains('active') && !inModifica && !gelo) dagliIlFuoco(pane);
@@ -2078,6 +2142,8 @@
         { gesto: 'clic dentro un terminale', che: 'sceglie la cella attiva, quella con la cornice verde: e\' lei che riceve tasti, congelamento e storia' }
       ] },
       { titolo: 'Copiare', voci: [
+        { gesto: 'trascina e rilascia', che: 'con Claude e i programmi che si prendono il mouse la selezione la fa il programma, e al rilascio il testo e\' negli appunti' },
+        { gesto: 'Maiusc + trascina', che: 'selezione di xterm anche quando il programma si prende il mouse; poi Ctrl+Ins' },
         { tasti: ['Ctrl+Alt+C'], che: 'congela il terminale: l\'output si ferma e il testo si seleziona col mouse' },
         { tasti: ['Ctrl+Ins'], che: 'copia la selezione fatta dentro il terminale, senza congelare' },
         { tasti: ['Esc'], che: 'a terminale congelato, riprende' }
@@ -2354,10 +2420,7 @@
         var sel = t && t.getSelection();
         if (sel) {
           e.preventDefault(); e.stopPropagation();
-          copiaTesto(sel, function (ok) {
-            etichettaGela.textContent = ok ? 'copiato' : 'non riesco';
-            setTimeout(function () { etichettaGela.textContent = 'Congela'; }, 1200);
-          });
+          copiaTesto(sel, avvisaCopia);
         }
         return;
       }

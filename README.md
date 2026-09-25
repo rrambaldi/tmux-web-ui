@@ -363,6 +363,11 @@ generic frontend — every feature here exists because something was annoying.
   work". Freezing selects **nothing**: what to copy is your call. There is a *Copia
   tutto* button if you really do want the whole screen, and `Ctrl+Ins` copies xterm's
   own selection without freezing at all.
+- **Copying from programs that take the mouse**, such as Claude Code in fullscreen
+  mode: drag, let go, and the text is on the browser's clipboard; the **Congela** label
+  flashes `copiato`. There the drag goes to the program, not to xterm.js, and the program
+  does the selecting: what reaches the browser is its OSC 52 request (see *Clipboard*
+  below). `Shift`+drag forces xterm's own selection instead, as in any terminal.
 - A **key bar** at the bottom of the page for `Esc`, `Tab`, the four arrows and
   `PgUp`/`PgDn`. A phone's on-screen keyboard has none of those, and without them you
   cannot move around in `tmux` or `vi`, or complete a filename. Hold a button and it
@@ -570,11 +575,18 @@ form works in the shell and breaks elsewhere. `Esc` is `ESC`, `Tab` is `HT` (0x0
 `PgUp`/`PgDn` are `ESC [ 5~` and `ESC [ 6~`: the same sequences xterm.js itself emits for
 those keys.
 
-**Clipboard.** The real fix would be a ttyd build that ships `@xterm/addon-clipboard`,
-i.e. OSC 52, plus `tmux set -g set-clipboard on`. In the **1.7.7** bundle from EPEL,
-xterm.js registers OSC handlers for 0, 1, 2, 4, 8, 10–12, 104, 110–112 and 1337 — **52
-is not among them**, so the sequence would be consumed by nobody and is not worth
-trying. Hence the freeze-and-copy workaround.
+**Clipboard.** In the **1.7.7** bundle from EPEL, xterm.js registers OSC handlers for
+0, 1, 2, 4, 8, 10–12, 104, 110–112 and 1337 — **52**, the one a program uses to say "put
+this on the clipboard", **is not among them**, and the request was dropped without a
+word. The dashboard registers the handler itself, via
+`term.parser.registerOscHandler(52, …)`, same-origin like everything else. tmux needs
+no change: Claude Code copies with `tmux load-buffer -w`, and with `-w` it is tmux
+itself that writes `ESC ] 52 ; ; <base64> BEL` to the client, even with `set-clipboard`
+at its default `external`. Verified by recording a tmux 3.5a client's pty, and then on
+the whole chain (tmux → ttyd 1.7.7 → xterm.js → handler) with headless Chrome. Write
+only: a read request (`?`) is ignored. The price is OSC 52's usual one: whatever is
+printed in a terminal can write the clipboard, as in kitty, WezTerm or iTerm2. Freezing
+(`Ctrl+Alt+C`) stays for programs that do not copy on their own.
 
 ## Layout
 

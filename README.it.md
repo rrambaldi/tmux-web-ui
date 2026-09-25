@@ -295,6 +295,12 @@ generico: sono tutte cose nate da un fastidio concreto.
   non va". Congelare **non seleziona niente**: cosa copiare lo scegli tu. Se davvero
   serve tutta la schermata c'e' il bottone *Copia tutto*, e `Ctrl+Ins` copia la
   selezione di xterm senza nemmeno congelare.
+- **Copia dai programmi che si prendono il mouse**, come Claude Code in modalita'
+  fullscreen: trascini, rilasci, e il testo e' negli appunti del browser; l'etichetta
+  di **Congela** lampeggia `copiato`. Li' il trascinamento va al programma, non a
+  xterm.js, e la selezione la fa lui: quello che arriva al browser e' la sua richiesta
+  OSC 52 (vedi *Copia-incolla* piu' sotto). `Maiusc`+trascina forza invece la
+  selezione di xterm, come in ogni terminale.
 - Una **barra di tasti** in fondo alla pagina per `Esc`, `Tab`, le quattro frecce e
   `PagSu`/`PagGiu`: la tastiera di sistema di un telefono non li ha, e senza di quelli
   in `tmux` o in `vi` non ci si muove e non si completa un nome di file. Tenendo premuto
@@ -552,12 +558,18 @@ prima di decidere: mandare sempre la seconda forma funziona nella shell e si rom
 altrove. `Esc` e' `ESC`, `Tab` e' `HT` (0x09), `PagSu`/`PagGiu` sono `ESC [ 5~` e
 `ESC [ 6~` — sono le stesse sequenze che xterm.js emette per quei tasti.
 
-**Copia-incolla:** la soluzione vera sarebbe una versione di ttyd che includa
-`@xterm/addon-clipboard`, cioe' OSC 52, piu' `tmux set -g set-clipboard on`. Nel
-bundle della **1.7.7 di EPEL** xterm.js registra gli handler OSC 0, 1, 2, 4, 8,
-10-12, 104, 110-112 e 1337: il **52 non c'e'**, quindi la sequenza non verrebbe
-consumata da nessuno e non serve nemmeno provare. Per questo qui si aggira con il
-congelamento (`Ctrl+Alt+C`).
+**Copia-incolla:** nel bundle della **1.7.7 di EPEL** xterm.js registra gli handler
+OSC 0, 1, 2, 4, 8, 10-12, 104, 110-112 e 1337: il **52**, quello con cui un programma
+chiede "metti questo negli appunti", **non c'e'**, e la richiesta veniva buttata senza
+errori. Il gestore lo registra la dashboard, con `term.parser.registerOscHandler(52, …)`,
+same-origin come il resto. tmux non va toccato: Claude Code copia con
+`tmux load-buffer -w`, e col `-w` e' tmux stesso a scrivere al client
+`ESC ] 52 ; ; <base64> BEL`, anche con `set-clipboard` al valore di serie `external`.
+Verificato registrando la pty di un client tmux 3.5a, e poi sulla catena intera
+(tmux → ttyd 1.7.7 → xterm.js → gestore) con un Chrome headless. Solo scrittura: la
+richiesta di leggere (`?`) si ignora. Il prezzo e' quello solito dell'OSC 52: quello che
+esce in un terminale puo' scrivere negli appunti, come in kitty, WezTerm o iTerm2. Il
+congelamento (`Ctrl+Alt+C`) resta per i programmi che da soli non copiano.
 
 ## Inventario
 
