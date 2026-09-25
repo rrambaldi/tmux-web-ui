@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="design/marchio/firma.svg">
+    <img src="design/marchio/firma-chiaro.svg" alt="tmuxify — Terminale persistente. Sessioni connesse." width="426">
+  </picture>
+</p>
+
 # Terminali web: tmux + ttyd + nginx con mTLS
 
 **N terminali persistenti raggiungibili dal browser**, ognuno una sessione `tmux` che
@@ -592,7 +599,8 @@ conf/icone/                    favicon opzionali, copiati nel webroot e linkati 
 design/ICONE-E-MARCHIO.md      icone e marchio: decisioni, regole, come si rigenerano
 design/esporta.py              rigenera icone, sprite e favicon dai sorgenti qui sotto
 design/icone/icone.json        sorgente delle icone; sprite.svg e' quello che va nella pagina
-design/marchio/                il marchio in SVG, sorgente dei favicon e dell'icona app
+design/marchio/                il marchio in SVG, sorgente dei favicon e dell'icona app;
+                               firma*.svg e' la firma in testa ai README
 certs/comune.inc               estensioni x509 e controlli condivisi
 certs/crea-ca.sh               crea la CA client (l'autenticazione del servizio)
 certs/cert-server.sh           certificato TLS del server (autofirmato o CSR)

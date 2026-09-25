@@ -48,6 +48,10 @@ design/
     favicon.svg               si adatta al tema del sistema (prefers-color-scheme)
     favicon-png.svg           sorgente dei favicon PNG: marchio piccolo su quadrato scuro arrotondato
     icona-app.svg             sorgente di apple-touch-icon e android-chrome: fondo pieno, marchio al 57,5 %
+    firma.svg                 la firma (marchio, ">tmuxify", cursore, motto) in testa a README.it.md;
+                              testo in tracciati (JetBrains Mono 700, Manrope 500), geometria di .firma
+    firma-chiaro.svg          per fondi chiari
+    firma-en.svg              col motto in inglese, per README.md (e firma-en-chiaro.svg)
 
 conf/icone/                   (ignorata da git, vedi conf/icone/LEGGIMI.md) — già generati:
   apple-touch-icon.png  android-chrome-192x192.png  android-chrome-512x512.png

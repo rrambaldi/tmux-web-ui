@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="design/marchio/firma-en.svg">
+    <img src="design/marchio/firma-en-chiaro.svg" alt="tmuxify — Persistent terminal. Connected sessions." width="426">
+  </picture>
+</p>
+
 # tmux-web: persistent browser terminals behind mutual TLS
 
 Self-hosted web terminals that survive the browser: **N persistent `tmux` sessions**,
@@ -609,7 +616,8 @@ conf/icone/                    optional favicons, copied to the webroot and link
 design/ICONE-E-MARCHIO.md      icons and mark: decisions, rules, how to regenerate them
 design/esporta.py              regenerates icons, sprite and favicons from the sources below
 design/icone/icone.json        the icons' source; sprite.svg is what goes into the page
-design/marchio/                the mark as SVG, source of the favicons and the app icon
+design/marchio/                the mark as SVG, source of the favicons and the app icon;
+                               firma*.svg is the signature at the top of the READMEs
 certs/comune.inc               shared x509 extensions and sanity checks
 certs/crea-ca.sh               create the client CA (the service's authentication)
 certs/cert-server.sh           server TLS certificate (self-signed, or --csr for a real CA)
