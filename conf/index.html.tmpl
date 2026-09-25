@@ -71,6 +71,19 @@
     }
     .nav-link.active .chiudi, .nav-link:hover .chiudi { display: inline-block; }
     .chiudi:hover { color: #fff; background: #4a2d2d; }
+    /* La spia di connessione, prima del nome. I tre stati si distinguono
+       anche per la forma -- pieno, tratteggiato, barrato -- e non solo per il
+       colore. Senza stato (terminale mai aperto da questa pagina) e'
+       invisibile ma tiene il posto: il tab non si allarga sotto il mouse nel
+       momento in cui il terminale si aggancia. */
+    .ico-stato {
+      width: 10px; height: 10px; stroke-width: 3; vertical-align: 0;
+      margin-right: .4em; visibility: hidden;
+    }
+    .nav-link[data-stato] .ico-stato { visibility: visible; }
+    [data-stato=connesso] .ico-stato { color: var(--acc); }
+    [data-stato=riconnessione] .ico-stato { color: #d4a24c; }
+    [data-stato=scollegato] .ico-stato { color: #e06c6c; }
     .tab-content { flex: 1 1 auto; min-height: 0; }
     .tab-pane { height: 100%; position: relative; }   /* riferimento per l'overlay di congelamento */
     iframe { width: 100%; height: 100%; border: none; display: block; background: #000; }
@@ -785,6 +798,25 @@
     function tabDi(id)  { return document.getElementById('term' + id + '-tab'); }
     function chipDi(id) { return document.getElementById('term' + id + '-box'); }
 
+    // La spia di connessione del tab. Lo stato lo raccontano gli avvisi di
+    // ttyd (vedi agganciaOverlay): qui lo si scrive sul bottone del tab, e il
+    // colore lo mette il CSS. E' solo una spia: chiudere un tab resta affare
+    // di controllaMorte, che guarda il [exited] e non questo. Il title lo
+    // dice a parole, perche' un colore da solo non arriva a tutti.
+    var TITOLO_TAB = 'Doppio click per rinominare, trascina per spostare, ✕ per chiudere';
+    var STATI_TAB = {
+      connesso: '',
+      riconnessione: ' · connessione caduta, si riconnette',
+      scollegato: ' · scollegato: Invio nel terminale per riconnettere'
+    };
+    function statoTab(id, stato) {
+      var btn = tabDi(id);
+      if (!btn || btn.dataset.stato === stato) return;
+      btn.dataset.stato = stato;
+      impostaIcona(btn.querySelector('.ico-stato'), stato);
+      btn.title = TITOLO_TAB + STATI_TAB[stato];
+    }
+
     function creaTab(id) {
       if (tabDi(id)) return;
       var li = document.createElement('li');
@@ -798,8 +830,14 @@
       btn.setAttribute('role', 'tab');
       btn.setAttribute('data-bs-toggle', 'tab');
       btn.setAttribute('data-bs-target', '#term' + id);
-      btn.title = 'Doppio click per rinominare, trascina per spostare, \u2715 per chiudere';
+      btn.title = TITOLO_TAB;
       btn.dataset.id = id;
+
+      // Nasce senza stato: il terminale non e' ancora aperto, e finche' non
+      // si aggancia non c'e' nessuna connessione da raccontare.
+      var luce = icona('connesso');
+      luce.classList.add('ico-stato');
+      btn.appendChild(luce);
 
       var span = document.createElement('span');
       span.className = 'etichetta';
@@ -2732,11 +2770,20 @@
         try { el = d.querySelector('.xterm'); } catch (err) { return; }
         if (!el) { if (++tentativi < 100) setTimeout(attendi, 100); return; }
         d.__overlayAgganciato = true;
+        statoTab(id, 'connesso');
 
         function guarda(nodo) {
           if (!eOverlay(nodo)) return;
           nodo.style.fontFamily = SANS;
-          if (!CADUTA.test(nodo.textContent || '')) return;
+          var testo = nodo.textContent || '';
+          // La spia prima dei controlli sulla caduta: deve seguire anche
+          // "Reconnected", che caduta non e'. L'ordine conta: "Press <invio>
+          // to Reconnect" e' lo scollegato che aspetta un tasto, gli altri due
+          // sono il riaggancio che ttyd tenta da solo.
+          if (/reconnected/i.test(testo)) statoTab(id, 'connesso');
+          else if (/to reconnect/i.test(testo)) statoTab(id, 'scollegato');
+          else if (/connection closed|reconnecting/i.test(testo)) statoTab(id, 'riconnessione');
+          if (!CADUTA.test(testo)) return;
           if (inUscita || controlli[id]) return;
           controlli[id] = 1;
           controllaMorte(id, 20);
