@@ -24,6 +24,7 @@ cambia: cambiano icone, raggruppamento della testata e alcuni stati visibili.
 | Icone | Set proprio, 35 icone, disegnate su griglia 24. Sostituiscono Bootstrap Icons e i bottoni fatti di lettere (A›a, a›A). |
 | Consegna delle icone | Sprite `<symbol>` messo nella pagina da `install.sh` al posto di un segnaposto `@SPRITE@`. Stesso principio di `@LICENZA@`: una copia a mano nel modello si allontanerebbe dal sorgente al primo ritocco. |
 | Nome | Sul marchio c'è “tmuxify”, ma per ora compare **solo** in `site.webmanifest`. `TITOLO` resta configurabile come oggi. Vedi §8. |
+| Wordmark | Due versioni nella tavola: Manrope 800 (`lockup-scuro`, `lockup-chiaro`) e **a caratteri fissi, `wordmark-mono`**: “>tmuxify▮” in JetBrains Mono 700, con `>` e cursore a blocco nell'accento. Di `wordmark-mono` ci sono i file pronti (`design/marchio/wordmark-mono*.svg`, testo già convertito in tracciati: non serve il font). |
 
 ---
 
@@ -48,10 +49,8 @@ design/
     favicon.svg               si adatta al tema del sistema (prefers-color-scheme)
     favicon-png.svg           sorgente dei favicon PNG: marchio piccolo su quadrato scuro arrotondato
     icona-app.svg             sorgente di apple-touch-icon e android-chrome: fondo pieno, marchio al 57,5 %
-    firma.svg                 la firma (marchio, ">tmuxify", cursore, motto) in testa a README.it.md;
-                              testo in tracciati (JetBrains Mono 700, Manrope 500), geometria di .firma
-    firma-chiaro.svg          per fondi chiari
-    firma-en.svg              col motto in inglese, per README.md (e firma-en-chiaro.svg)
+    wordmark-mono.svg         “>tmuxify▮” a caratteri fissi, per fondi scuri (ID tavola: wordmark-mono)
+    wordmark-mono-chiaro.svg  lo stesso per fondi chiari
 
 conf/icone/                   (ignorata da git, vedi conf/icone/LEGGIMI.md) — già generati:
   apple-touch-icon.png  android-chrome-192x192.png  android-chrome-512x512.png
@@ -262,12 +261,31 @@ Un commit per passo. Riferimenti di riga su `conf/index.html.tmpl` attuale (poss
 ## 7. Fuori da questo lavoro
 
 - **Menu “altro” sul telefono** (nella tavola, riquadro Telefono): rimandato alle regole UI/UX. L'icona `altro` è già nel set.
-- Wordmark “tmuxify” (Manrope 800, spaziatura −0,045 em) e lockup orizzontale: non servono alla dashboard.
+- Wordmark nella dashboard: per ora non si usa. Se servirà (per esempio nella pagina vuota accanto al marchio), si usa `wordmark-mono` dai file in `design/marchio/`, non testo con un font da caricare.
 - Token completi (spazi, raggi, tipografia), stati hover/focus e accessibilità della tastiera: arrivano con le regole UI/UX.
 
 ## 8. Decisioni aperte (non bloccano)
 
 - **Nome**: “tmuxify” (dalla bozza) contro `ttmux` (repo) e “Terminal Dashboard” (`TITOLO` di serie). Esiste già un progetto chiamato “tmuxifier”: verificare prima di adottarlo. Oggi il nome sta solo nel webmanifest (`esporta.py --nome`).
+
+---
+
+## Appendice — ID della tavola
+
+Nella tavola ogni immagine ha accanto un'etichetta viola con il suo ID; si spegne dal Tweak “mostraId” di ogni riquadro. Quando Roberto cita un ID, vale questa tabella.
+
+| ID nella tavola | cos'è | file nel repo |
+|---|---|---|
+| `dir-A` … `dir-F` | le sei direzioni del marchio (A scelta) | solo A: `design/marchio/marchio*.svg` |
+| `A·64`, `As·16`, `A·32·c` … | prova di scala: direzione · px; `s` = versione piccola, `c` = su chiaro | `A` → `marchio.svg` / `marchio-chiaro.svg`, `As` → `marchio-piccolo*.svg` |
+| `lockup-scuro`, `lockup-chiaro` | marchio + wordmark Manrope | — (non esportati) |
+| `wordmark-mono` | “>tmuxify▮” a caratteri fissi | `design/marchio/wordmark-mono.svg`, `wordmark-mono-chiaro.svg` |
+| `icona-app-180`, `icona-app-64` | icona app | `design/marchio/icona-app.svg` → `conf/icone/apple-touch-icon.png`, `android-chrome-*.png` |
+| `marchio-piccolo-32` | marchio piccolo a 32 px | `design/marchio/marchio-piccolo.svg` |
+| `favicon-tab-scuro`, `favicon-tab-chiaro` | favicon in una scheda scura / chiara | `design/marchio/favicon.svg` (si adatta al tema) |
+| nome di un'icona (`congela`, `liberi`, `griglia-2` …) | l'icona, ovunque compaia | `design/icone/<nome>.svg`, `#i-<nome>` nello sprite |
+| `stato-normale`, `stato-sopra`, `stato-acceso` | i tre stati del bottone | regole in §3 |
+| `griglia-4·24` / `·20` / `·16` | la stessa icona alle tre dimensioni ammesse | regole in §3 |
 
 ---
 
