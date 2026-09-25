@@ -16,6 +16,9 @@ location ^~ @PREFISSO@/ {
 
     alias @WEBROOT@/;
     index index.html;
+    # Vedi nginx-terminali.conf.tmpl: senza, dopo un install.sh il browser
+    # puo' tenersi la dashboard vecchia per ore.
+    expires -1;
 
     # websocket di ttyd e sessioni lunghe: vedi nginx-terminali.conf.tmpl
     proxy_http_version 1.1;

@@ -78,6 +78,14 @@ server {
     # aggiornamento di pacchetto non la sposta sotto i piedi.
     root  @WEBROOT@;
     index index.html;
+    # Cache-Control: no-cache. Senza nessuna intestazione di cache il browser
+    # si regola da se' (una frazione dell'eta' del file) e dopo un install.sh
+    # puo' continuare per ore a servire dalla sua cache la dashboard vecchia a
+    # chi la riapre da un segnalibro o da una scheda nuova (un ricaricamento
+    # col tasto invece ricontrolla). Con no-cache chiede ogni volta, e se il
+    # file non e' cambiato si prende un 304. `expires` e non add_header,
+    # perche' un add_header qui spegnerebbe quelli ereditati. [RR]
+    expires -1;
 
     # --- terminali ------------------------------------------------------------
     # La forma senza slash finale (/term1) non serve dichiararla: per una
