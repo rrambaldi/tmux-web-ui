@@ -29,6 +29,12 @@
        della status-bar di tmux [RR] */
     :root { --acc: #4fae8c; --acc-fondo: #14261f; --acc-bordo: #2b5145; }
     .nav-tabs { background-color: #1e1e1e; border-bottom: 1px solid #333; flex: 0 0 auto; }
+    /* Il marchio piccolo, fermo in testa alla fila dei tab: sotto i 24 px
+       quello senza prompt, che a questa misura sarebbe una macchia. */
+    .marchio-testata { display: flex; align-items: center; padding: 0 .55rem 0 .7rem; }
+    .marchio-testata .marchio { width: 20px; height: 20px; color: #e8ebe9; }
+    body.schermo-piccolo .marchio-testata { padding: 0 .4rem 0 .5rem; }
+    body.schermo-piccolo .marchio-testata .marchio { width: 18px; height: 18px; }
     .nav-link {
       position: relative;   /* ancora la barra dell'accento [RR] */
       color: #8c8c8c; border-radius: 0; font-size: 14px;
@@ -189,17 +195,25 @@
       color: #6f6f6f; font-size: .72rem; text-transform: uppercase;
       letter-spacing: .08em; margin-right: .2rem;
     }
+    /* Un terminale libero e' un bottone come quelli della testata: stesso
+       raggio, stessa misura, icona e nome. Le pillole di prima erano l'unica
+       cosa tonda della pagina. L'icona e' "apri" perche' dice cosa fa il
+       click; il tono e' piu' spento dei bottoni, perche' e' un terminale che
+       aspetta e non un comando. */
     .chip {
-      background: #232323; color: #9d9d9d; border: 1px solid #3a3a3a; border-radius: 999px;
-      font-family: inherit; font-size: .78rem; padding: .1rem .6rem;
+      display: inline-flex; align-items: center; gap: .35em;
+      background: #202020; color: #a3a3a3; border: 1px solid #383838; border-radius: 3px;
+      font-family: inherit; font-size: .78rem; padding: .15rem .5rem;
       cursor: pointer; white-space: nowrap;
     }
+    .chip .ico { color: #767676; }
     .chip .etichetta {
       display: inline-block; max-width: 14ch; vertical-align: bottom;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .chip:hover { background: #2c2c2c; color: #e6e6e6; border-color: #4a4a4a; }
+    .chip:hover { background: #2c2c2c; color: #fff; border-color: #4a4a4a; }
     .chip:active { background: var(--acc-fondo); color: var(--acc); border-color: var(--acc-bordo); }
+    .chip:hover .ico, .chip:active .ico { color: inherit; }
 
     /* Testata vuota: non c'e' nessun terminale da mostrare, quindi il
        contenitore si prende lo schermo e i chip diventano grossi come serve a
@@ -216,13 +230,14 @@
       text-transform: none; letter-spacing: 0; font-size: .85rem;
     }
     /* Il marchio sta sopra la nota, su una riga sua: la nota e' larga il
-       100% e va a capo da se'. Solo qui, e con un quarto del lato libero
-       intorno, come vuole il marchio. */
+       100% e va a capo da se'. Grande solo qui, e con un quarto del lato
+       libero intorno, come vuole il marchio. */
     .scatola .marchio { display: none; }
     body.senza-tab .scatola .marchio {
       display: block; width: 56px; height: 56px; margin-bottom: .5rem; color: #e8ebe9;
     }
-    body.senza-tab .chip { font-size: 1rem; padding: .45rem 1.1rem; }
+    body.senza-tab .chip { font-size: 1rem; padding: .5rem .95rem; gap: .5em; border-radius: 4px; }
+    body.senza-tab .chip .ico { width: 20px; height: 20px; stroke-width: 1.9; }
     body.senza-tab .chip .etichetta { max-width: 18ch; }
 
     /* Un bottone della testata che rappresenta uno stato ACCESO, non un
@@ -274,7 +289,7 @@
     /* Il marchio arriva dallo sprite: il neutro prende il color, l'accento
        e' --acc. Qui solo misura e colore del neutro -- fill e stroke stanno
        gia' nei tracciati, e i pannelli non si ricolorano uno per uno. */
-    .aiuto-testata .marchio { flex: 0 0 auto; width: 18px; height: 18px; color: #e8ebe9; }
+    .aiuto-testata .marchio { flex: 0 0 auto; width: 24px; height: 24px; color: #e8ebe9; }
     .aiuto-corpo { padding: .2rem .9rem 1rem; }
     .aiuto h3 {
       margin: 1rem 0 .4rem; font-size: .72rem; font-weight: 600;
@@ -415,7 +430,11 @@
 @SPRITE@
 
   <!-- Barra dei TAB -->
-  <ul class="nav nav-tabs" id="terminalTabs" role="tablist"></ul>
+  <!-- Il marchio sta in testa alla fila, fermo: i tab e i bottoni li mette
+       il JS dopo di lui, e il trascinamento sposta solo le .nav-item. -->
+  <ul class="nav nav-tabs" id="terminalTabs" role="tablist">
+    <li class="marchio-testata" role="presentation"><svg class="marchio" aria-hidden="true" focusable="false"><use href="#marchio-piccolo"></use></svg></li>
+  </ul>
 
   <!-- I terminali liberi, quelli che non hanno un tab in testata: riempito da JS -->
   <div class="scatola" id="scatola"></div>
@@ -970,9 +989,9 @@
     // ci torna appena la shell muore. Appena installato -- o dopo un riavvio
     // del servizio, quando le sessioni sono tutte nuove -- sono tutti qui. [RR]
     var scatola = document.getElementById('scatola');
-    // Il marchio, che si vede solo con la testata vuota (vedi il CSS): e'
-    // l'unico posto "di benvenuto" della pagina. Con dei tab aperti la
-    // testata e' dei tab e dei bottoni, e lo spazio e' dei terminali.
+    // Il marchio grande, che si vede solo con la testata vuota (vedi il CSS):
+    // e' l'unico posto "di benvenuto" della pagina. Con dei tab aperti resta
+    // quello piccolo in testa alla fila, e lo spazio e' dei terminali.
     scatola.appendChild(simbolo('marchio', 'marchio'));
     var notaScatola = document.createElement('span');
     notaScatola.className = 'scatola-nota';
@@ -984,6 +1003,7 @@
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'chip';
+      b.appendChild(icona('apri'));
       b.id = 'term' + id + '-box';
       b.dataset.id = id;
       b.title = 'Apri questo terminale in un tab';
@@ -2360,9 +2380,9 @@
       bChiudi.type = 'button';
       bChiudi.className = 'bottone-gela';
       bChiudi.textContent = 'Chiudi (Esc)';
-      // Il marchio piccolo, quello senza prompt: a 18 px il prompt sarebbe
-      // una macchia.
-      testata.appendChild(simbolo('marchio-piccolo', 'marchio'));
+      // Il marchio intero, col prompt: a 24 px ci sta, e qui c'e' spazio per
+      // farlo vedere.
+      testata.appendChild(simbolo('marchio', 'marchio'));
       testata.appendChild(titolo);
       testata.appendChild(bChiudi);
 
