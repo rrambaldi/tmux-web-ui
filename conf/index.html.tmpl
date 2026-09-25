@@ -215,6 +215,13 @@
       width: 100%; text-align: center; margin: 0 0 .5rem;
       text-transform: none; letter-spacing: 0; font-size: .85rem;
     }
+    /* Il marchio sta sopra la nota, su una riga sua: la nota e' larga il
+       100% e va a capo da se'. Solo qui, e con un quarto del lato libero
+       intorno, come vuole il marchio. */
+    .scatola .marchio { display: none; }
+    body.senza-tab .scatola .marchio {
+      display: block; width: 56px; height: 56px; margin-bottom: .5rem; color: #e8ebe9;
+    }
     body.senza-tab .chip { font-size: 1rem; padding: .45rem 1.1rem; }
     body.senza-tab .chip .etichetta { max-width: 18ch; }
 
@@ -963,6 +970,10 @@
     // ci torna appena la shell muore. Appena installato -- o dopo un riavvio
     // del servizio, quando le sessioni sono tutte nuove -- sono tutti qui. [RR]
     var scatola = document.getElementById('scatola');
+    // Il marchio, che si vede solo con la testata vuota (vedi il CSS): e'
+    // l'unico posto "di benvenuto" della pagina. Con dei tab aperti la
+    // testata e' dei tab e dei bottoni, e lo spazio e' dei terminali.
+    scatola.appendChild(simbolo('marchio', 'marchio'));
     var notaScatola = document.createElement('span');
     notaScatola.className = 'scatola-nota';
     scatola.appendChild(notaScatola);
