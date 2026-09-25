@@ -430,6 +430,10 @@ icona() { [ -f "$WEBROOT/$1" ] || return 0; printf '  %s\n' "$2" >> "$TMP/icone"
 icona apple-touch-icon.png "<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"$PREFISSO/apple-touch-icon.png\">"
 icona favicon-32x32.png    "<link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"$PREFISSO/favicon-32x32.png\">"
 icona favicon-16x16.png    "<link rel=\"icon\" type=\"image/png\" sizes=\"16x16\" href=\"$PREFISSO/favicon-16x16.png\">"
+# Dopo i PNG: quale dei due usare lo decide il browser, e vanno bene tutti e
+# due su schede chiare e scure -- l'SVG cambia colore col tema del sistema, i
+# PNG hanno il loro quadrato scuro.
+icona favicon.svg          "<link rel=\"icon\" type=\"image/svg+xml\" href=\"$PREFISSO/favicon.svg\">"
 icona site.webmanifest     "<link rel=\"manifest\" href=\"$PREFISSO/site.webmanifest\">"
 N_ICONE=$(wc -l < "$TMP/icone")
 
