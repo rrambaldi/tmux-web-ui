@@ -13,6 +13,10 @@ certificato client**.
 
 *Documentation in English: [README.md](README.md).*
 
+![Architettura: browser, nginx con mTLS, ttyd, tmux, bash](design/architecture.png)
+
+*Schema per gentile concessione di ChatGPT.*
+
 ```
 browser  --https + certificato client-->  nginx :443
              (mTLS: senza cert non entra)     |
@@ -596,6 +600,7 @@ conf/nginx-profili-map.inc     le map che ricavano l'identita' dal certificato
 conf/nginx-profili.inc         /io e /profili/: il profilo per utente, servito da nginx
 conf/index.html.tmpl           la dashboard a tab
 conf/icone/                    favicon opzionali, copiati nel webroot e linkati se presenti
+design/architecture.png        lo schema dell'architettura in testa ai README
 design/ICONE-E-MARCHIO.md      icone e marchio: decisioni, regole, come si rigenerano
 design/esporta.py              rigenera icone, sprite e favicon dai sorgenti qui sotto
 design/icone/icone.json        sorgente delle icone; sprite.svg e' quello che va nella pagina

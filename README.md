@@ -16,6 +16,10 @@ it, still running.
 
 *Documentazione in italiano: [README.it.md](README.it.md).*
 
+![Architecture: browser, nginx with mTLS, ttyd, tmux, bash](design/architecture.png)
+
+*Diagram courtesy of ChatGPT.*
+
 ```
 browser  --https + client certificate-->  nginx :443
               (mTLS: no cert, no entry)       |
@@ -613,6 +617,7 @@ conf/nginx-profili-map.inc     the maps that derive the identity from the certif
 conf/nginx-profili.inc         /io and /profili/: the per-user profile, served by nginx
 conf/index.html.tmpl           the tabbed dashboard
 conf/icone/                    optional favicons, copied to the webroot and linked if present
+design/architecture.png        the architecture diagram at the top of the READMEs
 design/ICONE-E-MARCHIO.md      icons and mark: decisions, rules, how to regenerate them
 design/esporta.py              regenerates icons, sprite and favicons from the sources below
 design/icone/icone.json        the icons' source; sprite.svg is what goes into the page
