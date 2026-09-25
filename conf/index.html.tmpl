@@ -97,12 +97,14 @@
     .bottone-gela.non-copiato, .bottone-gela.non-copiato:hover {
       background: #8a1f1f; color: #fff; border-color: #ff6b6b;
     }
-    /* 'A-' e 'A+' dicevano quanto un segno di spunta: il verso adesso lo
-       disegna la dimensione stessa delle due lettere, A>a rimpicciolisce e
-       a>A ingrandisce. Niente da tradurre e niente da ricordare. [RR] */
-    .lettera-g { font-size: 1.1em; }
-    .lettera-p { font-size: .72em; }
-    .verso { color: #777; font-size: .8em; margin: 0 .1em; }
+    /* I gruppi della testata: liberi | caratteri | nomi e griglia | tasti,
+       storia e barra | congela e aiuto. Quale separatore si vede lo decide
+       sistemaSeparatori(), dove un bottone sparisce: un selettore CSS che
+       indovini "il vicino nascosto" si rompe al primo bottone in piu'. */
+    .separatore { flex: 0 0 auto; width: 1px; height: 18px; margin: 0 .25rem; background: #363636; }
+    /* Senza testo il bottone e' la sola icona: una misura minima, perche'
+       resti un bersaglio e non un francobollo. */
+    .barra-dx .bottone-gela { min-width: 28px; justify-content: center; }
     /* etichetta in modifica: si vede che e' un campo, non un'etichetta.
        user-select va riattivato, il .nav-link lo spegne per il trascinamento. */
     .etichetta[contenteditable="true"] {
@@ -352,6 +354,16 @@
     body.schermo-piccolo .bottone-gela { font-size: .72rem; padding: .1rem .4rem; }
     body.schermo-medio   .barra-dx,
     body.schermo-piccolo .barra-dx { gap: .35rem; padding: 0 .35rem; }
+    /* Dove lo spazio e' poco i bottoni sono la sola icona, e il nome sta in
+       aria-label e title (vedi nomina). Il conto dei liberi resta: e'
+       un'informazione, non un'etichetta. */
+    body.schermo-medio   .barra-dx .testo,
+    body.schermo-piccolo .barra-dx .testo { display: none; }
+    body.schermo-piccolo .barra-dx .bottone-gela { min-width: 32px; }
+    /* Nove bottoni da 32 px, piu' il conto, stanno in 390 px solo con lo
+       spazio fra loro stretto. Su un telefono ancora piu' stretto vanno a
+       capo invece di finire fuori schermo, dove non li si prende piu'. */
+    body.schermo-piccolo .barra-dx { gap: .2rem; flex-wrap: wrap; }
     body.schermo-piccolo .tasto { min-width: 2.4rem; font-size: .9rem; }
     body.schermo-medio   .chip { font-size: .74rem; }
     body.schermo-piccolo .chip { font-size: .72rem; }
@@ -450,9 +462,9 @@
     var MODI_TITOLO = ['T', 'W', 'no'];
     var ETICHETTE_MODO = { T: 'Titolo', W: 'Comando', no: 'Nomi miei' };
     var SPIEGA_MODO = {
-      T: 'I tab prendono il titolo che scrive l\'applicazione (vim, ssh, top). Clicca per il comando in esecuzione.',
-      W: 'I tab prendono il comando in esecuzione. Clicca per usare solo i nomi scritti da te.',
-      no: 'I tab tengono i nomi scritti da te. Clicca per tornare al titolo dell\'applicazione.'
+      T: 'i tab prendono il titolo che scrive l\'applicazione (vim, ssh, top). Clicca per il comando in esecuzione.',
+      W: 'i tab prendono il comando in esecuzione. Clicca per usare solo i nomi scritti da te.',
+      no: 'i tab tengono i nomi scritti da te. Clicca per tornare al titolo dell\'applicazione.'
     };
     var modoTitolo = leggi(CHIAVE_TITOLI, 'T');
     if (MODI_TITOLO.indexOf(modoTitolo) < 0) modoTitolo = 'T';
@@ -508,7 +520,8 @@
 
     function mostraModoTitolo() {
       etichettaTitoli.textContent = ETICHETTE_MODO[modoTitolo];
-      bottoneTitoli.title = SPIEGA_MODO[modoTitolo];
+      nomina(bottoneTitoli, 'Nome dei tab: ' + ETICHETTE_MODO[modoTitolo] + ' · Ctrl+Alt+N',
+        SPIEGA_MODO[modoTitolo]);
     }
     function commutaModoTitolo() {
       modoTitolo = MODI_TITOLO[(MODI_TITOLO.indexOf(modoTitolo) + 1) % MODI_TITOLO.length];
@@ -598,13 +611,23 @@
       if (use) use.setAttribute('href', '#i-' + nome);
     }
 
+    // Il nome di un bottone della testata, per chi non ne vede il testo:
+    // nella testata compatta resta la sola icona, e il nome -- con la
+    // scorciatoia, dove c'e' -- passa in aria-label e title. Nel title, dopo
+    // il nome, la spiegazione per chi ci passa sopra col mouse.
+    function nomina(b, nome, spiega) {
+      b.setAttribute('aria-label', nome);
+      b.title = spiega ? nome + ' — ' + spiega : nome;
+    }
+
     var barraDx = document.createElement('li');
     barraDx.className = 'barra-dx';
     var bottoneTastiera = document.createElement('button');
     bottoneTastiera.type = 'button';
     bottoneTastiera.className = 'bottone-gela';
-    // Non la sola icona: da sola, in mezzo a dieci tab, non si capisce che
-    // sia un interruttore ne' di cosa.
+    // Icona e testo dove c'e' spazio: l'icona da sola, in mezzo a dieci tab,
+    // non dice che sia un interruttore ne' di cosa. Dove lo spazio manca
+    // resta lei, e il nome lo porta nomina().
     conIcona(bottoneTastiera, 'tasti', 'Tasti');
 
     // Modalita' storia = copy-mode di tmux, quella di Ctrl-B [. Il bottone sta
@@ -633,11 +656,14 @@
     bottoneBarra.className = 'bottone-gela';
     var etichettaBarra = conIcona(bottoneBarra, 'barra-tmux', 'Barra tmux');
 
+    // L'icona dice com'e' la barra adesso, non cosa fara' il click: e' lo
+    // stato che si guarda, come per la griglia.
     function mostraBarraTmux() {
       bottoneBarra.classList.toggle('acceso', !barraTmuxVisibile);
       bottoneBarra.setAttribute('aria-pressed', barraTmuxVisibile ? 'false' : 'true');
-      bottoneBarra.title = (barraTmuxVisibile ? 'Nasconde' : 'Mostra') +
-        ' la status-bar di tmux in fondo al terminale (vale per tutti i terminali)';
+      impostaIcona(bottoneBarra, barraTmuxVisibile ? 'barra-tmux' : 'barra-tmux-off');
+      nomina(bottoneBarra, 'Barra tmux', (barraTmuxVisibile ? 'nasconde' : 'mostra') +
+        ' la status-bar di tmux in fondo al terminale (vale per tutti i terminali)');
     }
     mostraBarraTmux();
 
@@ -657,30 +683,18 @@
     // Dimensione dei caratteri del terminale, a mano. Sta accanto agli altri
     // per lo stesso motivo: serve dove lo schermo e' piccolo, ma va raggiunta
     // anche da un portatile.
-    // Il verso lo dicono le lettere: A>a rimpicciolisce, a>A ingrandisce.
-    // Il nome per chi non vede il bottone lo mette etichetteFont, insieme al
-    // titolo, perche' li' c'e' anche la misura di adesso.
-    function lettere(giu) {
-      var f = document.createDocumentFragment();
-      [[giu ? 'A' : 'a', giu ? 'lettera-g' : 'lettera-p'],
-       ['›', 'verso'],
-       [giu ? 'a' : 'A', giu ? 'lettera-p' : 'lettera-g']].forEach(function (x) {
-        var s = document.createElement('span');
-        s.className = x[1];
-        s.textContent = x[0];
-        f.appendChild(s);
-      });
-      return f;
-    }
-
+    // Il verso lo dicono le icone: la A grande che diventa piccola, e il
+    // contrario. Niente testo, nemmeno dove c'e' spazio: il nome per chi non
+    // vede il bottone lo mette etichetteFont, insieme al titolo, perche' li'
+    // c'e' anche la misura di adesso.
     var bottoneGiu = document.createElement('button');
     bottoneGiu.type = 'button';
     bottoneGiu.className = 'bottone-gela';
-    bottoneGiu.appendChild(lettere(true));
+    bottoneGiu.appendChild(icona('testo-meno'));
     var bottoneSu = document.createElement('button');
     bottoneSu.type = 'button';
     bottoneSu.className = 'bottone-gela';
-    bottoneSu.appendChild(lettere(false));
+    bottoneSu.appendChild(icona('testo-piu'));
     // Piu' terminali insieme, dove c'e' spazio. Un bottone solo che cicla
     // 1 -> 2 -> 4 -> 6 fra i formati che lo schermo regge: tre bottoni in piu'
     // su una barra che ne ha gia' cinque si notano piu' della funzione che
@@ -695,7 +709,6 @@
     bottoneGela.type = 'button';
     bottoneGela.className = 'bottone-gela';
     var etichettaGela = conIcona(bottoneGela, 'congela', 'Congela');
-    bottoneGela.title = 'Blocca l\'input e mostra il testo selezionabile (Ctrl+Alt+C)';
     // Le scorciatoie stavano in un rigo di testo qui in testata: lungo, e
     // nascosto proprio sugli schermi stretti dove servirebbe. Ora stanno nella
     // finestra dell'aiuto, che si apre da questo bottone o con Ctrl+H.
@@ -720,22 +733,49 @@
     // un glifo: nascosta la fila, e' l'unica cosa che dice che di terminali da
     // usare ce ne sono ancora -- per esempio dopo che una shell e' morta e il
     // suo tab si e' chiuso. [RR]
+    // Il numero e la parola stanno in due span: nella testata compatta la
+    // parola se ne va come gli altri testi, il numero resta.
     var bottoneScatola = document.createElement('button');
     bottoneScatola.type = 'button';
     bottoneScatola.className = 'bottone-gela';
     var etichettaScatola = conIcona(bottoneScatola, 'liberi', '');
+    var contoScatola = document.createElement('span');
+    contoScatola.className = 'conto';
+    bottoneScatola.insertBefore(contoScatola, etichettaScatola);
 
-    barraDx.appendChild(bottoneScatola);
-    barraDx.appendChild(bottoneGiu);
-    barraDx.appendChild(bottoneSu);
-    barraDx.appendChild(bottoneTitoli);
-    barraDx.appendChild(bottoneGriglia);
-    barraDx.appendChild(bottoneTastiera);
-    barraDx.appendChild(bottoneStoria);
-    barraDx.appendChild(bottoneBarra);
-    barraDx.appendChild(bottoneGela);
-    barraDx.appendChild(bottoneAiuto);
+    function separatore() {
+      var s = document.createElement('span');
+      s.className = 'separatore';
+      s.setAttribute('aria-hidden', 'true');
+      return s;
+    }
+    [[bottoneScatola],
+     [bottoneGiu, bottoneSu],
+     [bottoneTitoli, bottoneGriglia],
+     [bottoneTastiera, bottoneStoria, bottoneBarra],
+     [bottoneGela, bottoneAiuto]].forEach(function (gruppo, i) {
+      if (i) barraDx.appendChild(separatore());
+      gruppo.forEach(function (b) { barraDx.appendChild(b); });
+    });
     tabs.appendChild(barraDx);
+
+    // Un separatore si vede solo se ha un bottone visibile da tutte e due le
+    // parti, e fra due gruppi ne resta uno anche se quello in mezzo e' sparito
+    // tutto: mai doppio, mai in testa, mai in coda. Va richiamata dove un
+    // bottone si nasconde o ricompare (disegnaScatola, etichetteGriglia).
+    function sistemaSeparatori() {
+      var inAttesa = null, prima = false;
+      Array.prototype.forEach.call(barraDx.children, function (el) {
+        if (el.classList.contains('separatore')) {
+          el.style.display = 'none';
+          if (prima && !inAttesa) inAttesa = el;
+        } else if (el.style.display !== 'none') {
+          if (inAttesa) inAttesa.style.display = '';
+          inAttesa = null;
+          prima = true;
+        }
+      });
+    }
 
     // --- tab: uno per ogni terminale APERTO ----------------------------------
     // I tab nascono e muoiono: uno compare quando il terminale si apre dal
@@ -918,7 +958,9 @@
         : 'Liberi';
 
       bottoneScatola.style.display = liberi ? '' : 'none';
-      etichettaScatola.textContent = liberi + (liberi === 1 ? ' libero' : ' liberi');
+      sistemaSeparatori();
+      contoScatola.textContent = liberi;
+      etichettaScatola.textContent = liberi === 1 ? 'libero' : 'liberi';
       bottoneScatola.classList.toggle('acceso', mostrata);
       bottoneScatola.setAttribute('aria-pressed', mostrata ? 'true' : 'false');
       bottoneScatola.title = liberi + (liberi === 1 ? ' terminale libero' : ' terminali liberi') +
@@ -1085,15 +1127,20 @@
 
     // L'esito si legge sul bottone Congela, verde o rosso. Il timer si azzera
     // a ogni copia: due copie di fila non si spengono a meta'.
+    // L'icona fa la sua parte dove il testo non c'e' (la testata compatta):
+    // il segno di spunta se e' andata. Se no resta il fiocco, e l'avviso e'
+    // il rosso. Allo scadere il bottone torna com'e' lo stato, che una copia
+    // arrivata da OSC 52 puo' trovare anche congelato.
     var timerCopia = null;
     function avvisaCopia(ok) {
       etichettaGela.textContent = ok ? 'copiato' : 'non riesco';
+      impostaIcona(bottoneGela, ok ? 'copiato' : 'congela');
       bottoneGela.classList.toggle('copiato', ok);
       bottoneGela.classList.toggle('non-copiato', !ok);
       clearTimeout(timerCopia);
       timerCopia = setTimeout(function () {
-        etichettaGela.textContent = 'Congela';
         bottoneGela.classList.remove('copiato', 'non-copiato');
+        mostraGela();
       }, 1200);
     }
 
@@ -1155,7 +1202,7 @@
       var term = termDi(pane);
       if (!term) {
         etichettaGela.textContent = 'terminale non pronto';
-        setTimeout(function () { etichettaGela.textContent = 'Congela'; }, 1500);
+        setTimeout(mostraGela, 1500);
         return;
       }
 
@@ -1222,9 +1269,21 @@
       });
       bChiudi.addEventListener('click', scongela);
 
-      etichettaGela.textContent = 'Riprendi';
-      bottoneGela.classList.add('acceso');
-      bottoneGela.setAttribute('aria-pressed', 'true');
+      mostraGela();
+    }
+
+    // Testo, icona e nome di Congela secondo lo stato. Un posto solo, perche'
+    // ci si torna da tre parti: congela(), scongela() e la fine di un avviso.
+    // Congelato, il bottone e' il play di Riprendi: dice cosa c'e' da fare,
+    // come il testo.
+    function mostraGela() {
+      etichettaGela.textContent = gelo ? 'Riprendi' : 'Congela';
+      impostaIcona(bottoneGela, gelo ? 'riprendi' : 'congela');
+      bottoneGela.classList.toggle('acceso', !!gelo);
+      bottoneGela.setAttribute('aria-pressed', gelo ? 'true' : 'false');
+      nomina(bottoneGela, (gelo ? 'Riprendi' : 'Congela') + ' · Ctrl+Alt+C', gelo
+        ? 'sblocca l\'input e torna al terminale, anche con Esc'
+        : 'blocca l\'input e mostra il testo selezionabile');
     }
 
     function scongela() {
@@ -1237,9 +1296,7 @@
       // Il <pre> non c'e' piu': la selezione che lo puntava va chiusa a mano,
       // o resta un range appeso a un nodo staccato dal documento.
       window.getSelection().removeAllRanges();
-      etichettaGela.textContent = 'Congela';
-      bottoneGela.classList.remove('acceso');
-      bottoneGela.setAttribute('aria-pressed', 'false');
+      mostraGela();
       dagliIlFuoco(g.pane);
     }
 
@@ -1700,8 +1757,8 @@
       var come = fontAMano() ? 'scelta' : 'automatica';
       bottoneGiu.title = 'Caratteri piu' + '’ piccoli (adesso ' + n + 'px, ' + come + ')';
       bottoneSu.title  = 'Caratteri piu' + '’ grandi (adesso ' + n + 'px, ' + come + ')';
-      // Il bottone e' due lettere: senza questo, a chi legge lo schermo
-      // arriverebbe "A a" e nient'altro.
+      // Il bottone e' la sola icona: senza questo, a chi legge lo schermo
+      // non arriverebbe niente.
       bottoneGiu.setAttribute('aria-label', bottoneGiu.title);
       bottoneSu.setAttribute('aria-label', bottoneSu.title);
       bottoneGiu.disabled = n <= FONT_MIN;
@@ -1912,11 +1969,15 @@
       // se ne va come dove lo schermo e' troppo piccolo, invece di restare li'
       // a non fare niente quando lo si preme.
       bottoneGriglia.style.display = (scelte.length && pulsanti().length > 1) ? '' : 'none';
+      sistemaSeparatori();
       etichettaGriglia.textContent = n > 1 ? String(n) : 'Griglia';
+      // L'icona disegna quante celle ci sono adesso: nella testata compatta,
+      // dove il numero non si legge, e' lei a dirlo.
+      impostaIcona(bottoneGriglia, 'griglia-' + n);
       bottoneGriglia.classList.toggle('acceso', n > 1);
       bottoneGriglia.setAttribute('aria-pressed', n > 1 ? 'true' : 'false');
-      bottoneGriglia.title = 'Terminali insieme: ' + [1].concat(scelte).join(' → ') +
-        ' → … (Ctrl+Alt+G)';
+      nomina(bottoneGriglia, 'Griglia' + (n > 1 ? ' ' + n : '') + ' · Ctrl+Alt+G',
+        'terminali insieme: ' + [1].concat(scelte).join(' → ') + ' → …');
     }
 
     bottoneGriglia.addEventListener('click', commutaGriglia);
@@ -1992,9 +2053,9 @@
       document.body.classList.toggle('storia', storiaAttiva);
       bottoneStoria.classList.toggle('acceso', storiaAttiva);
       bottoneStoria.setAttribute('aria-pressed', storiaAttiva ? 'true' : 'false');
-      bottoneStoria.title = storiaAttiva
-        ? 'Esci dalla storia e torna al terminale (Esc)'
-        : 'Scorri la storia del terminale (come Ctrl-B [)';
+      nomina(bottoneStoria, 'Storia', storiaAttiva
+        ? 'esci dalla storia e torna al terminale (Esc)'
+        : 'scorri la storia del terminale (come Ctrl-B [)');
     }
 
     function guardaStoria() {
@@ -2123,8 +2184,8 @@
     // perche' leggi() non distingue un false salvato da un valore assente.
     function mostraTastiera(mostra) {
       document.body.classList.toggle('mostra-tastiera', mostra);
-      bottoneTastiera.title = (mostra ? 'Nascondi' : 'Mostra') +
-        ' i tasti Tab, Esc, frecce, PagSu/PagGiu';
+      nomina(bottoneTastiera, 'Tasti', (mostra ? 'nascondi' : 'mostra') +
+        ' i tasti Tab, Esc, frecce, PagSu/PagGiu');
       bottoneTastiera.setAttribute('aria-pressed', mostra ? 'true' : 'false');
       bottoneTastiera.classList.toggle('acceso', mostra);
     }
@@ -2366,7 +2427,7 @@
       if (b) { try { b.focus(); } catch (err) {} }
     }
 
-    bottoneAiuto.title = 'Elenco delle scorciatoie (Ctrl+H)';
+    nomina(bottoneAiuto, 'Aiuto · Ctrl+H', 'elenco delle scorciatoie');
     bottoneAiuto.setAttribute('aria-pressed', 'false');
     bottoneAiuto.addEventListener('click', commutaAiuto);
 
@@ -2711,6 +2772,7 @@
     etichetteFont();
     mostraStoria();
     mostraModoTitolo();
+    mostraGela();
 
     // La fila dei liberi: e' anche lei che decide il layout, perche' senza
     // nessun tab aperto si prende tutto lo spazio dei pannelli.
