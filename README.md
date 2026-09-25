@@ -245,7 +245,8 @@ current state is, and `./install.sh` prints its full summary before touching any
 | Close port 80 as well | `PROTEGGI_80` (`nome` / `default` / `no`), then `./install.sh --salta-pacchetti` |
 | Tie tab names to the user | `PROFILI` (`si` / `no`), then `./install.sh --salta-pacchetti` |
 | Reset somebody's profile | `rm $DIR_PROFILI/<cn>.json` — it is recreated on their next visit |
-| Add favicons | drop the files in `conf/icone/`, then `./install.sh --salta-pacchetti` |
+| Add favicons | `design/esporta.py` generates them into `conf/icone/` from the mark in `design/marchio/`, then `./install.sh --salta-pacchetti` |
+| Change or add an icon | `design/icone/icone.json`, then `design/esporta.py --solo-icone` and `./install.sh --salta-pacchetti` (see `design/ICONE-E-MARCHIO.md`) |
 | Check a running installation | `sudo ./verifica.sh` — changes nothing, and covers the clear-text side too |
 
 ## The dashboard
@@ -313,7 +314,7 @@ generic frontend — every feature here exists because something was annoying.
   works when the server does not answer.
 - **Automatic names**: a tab takes the name the terminal gives itself — the title the
   application writes (`vim: report.txt`, `ssh host`, `top`), or the running command. The
-  🏷 button in the header (or `Ctrl+Alt+N`) cycles the three modes — **Titolo**,
+  tab-name button in the header (or `Ctrl+Alt+N`) cycles the three modes — **Titolo**,
   **Comando**, **Nomi miei** — and the choice applies **immediately**, with nothing to
   change on the server: tmux sends both fields inside the same title, and it is the page
   that picks which one to show. The choice stays on this browser.
@@ -372,19 +373,19 @@ generic frontend — every feature here exists because something was annoying.
   `PgUp`/`PgDn`. A phone's on-screen keyboard has none of those, and without them you
   cannot move around in `tmux` or `vi`, or complete a filename. Hold a button and it
   repeats, the way a real key does. It appears on its own where the pointer is a finger
-  (`pointer: coarse`) and toggles with the **`⌨ Tasti`** button in the header, the choice
+  (`pointer: coarse`) and toggles with the **Tasti** button in the header, the choice
   remembered in `localStorage`. While a pane is frozen the keys go dead: they travel
   through `term.input()`, which honours `disableStdin` exactly as the real keyboard does.
-- **History mode**: the `⇱ Storia` button in the header enters and leaves `tmux`'s
+- **History mode**: the **Storia** button in the header enters and leaves `tmux`'s
   copy-mode (the `Ctrl-B [` one), where the arrows and `PgUp`/`PgDn` scroll the
   scrollback instead of reaching the program. The button lives in the header rather than
   the footer so that it is there on the desktop too, and it lights up while the mode is
-  on; the footer shows a `⇱ storia · le frecce scorrono` indicator, which is where you
+  on; the footer shows a `storia · le frecce scorrono` indicator, which is where you
   are looking while pressing arrows. The state is **not** a tally of our own clicks: it
   is read from what tmux draws, so the indicator stays right even when you enter or
   leave with a real keyboard.
-- **`A›a` / `a›A`** change the terminal's font size: the direction is drawn by the size
-  of the two letters themselves, so there is nothing to translate. The choice beats the automatic sizing
+- **Smaller / larger text** change the terminal's font size: the direction is drawn by the icon,
+  a big A turning small and the other way round, so there is nothing to translate. The choice beats the automatic sizing
   and is kept in `localStorage`; stepping back onto exactly the value the automatic
   sizing would have picked drops the choice, so adapting to the screen resumes without
   needing a third "auto" button. It lives in `localStorage` and **not** in the
@@ -418,7 +419,8 @@ generic frontend — every feature here exists because something was annoying.
 
 Bootstrap is loaded from a CDN, so the **client** needs internet access (the server does
 not). For an air-gapped setup, drop the two files into the webroot and fix the two URLs
-in `conf/index.html.tmpl`.
+in `conf/index.html.tmpl`. The icons do not go through any CDN: they are inline SVG in
+the page, a sprite that `install.sh` copies from `design/icone/sprite.svg`.
 
 ## Gotchas, all of them found the hard way
 
@@ -604,6 +606,10 @@ conf/nginx-profili-map.inc     the maps that derive the identity from the certif
 conf/nginx-profili.inc         /io and /profili/: the per-user profile, served by nginx
 conf/index.html.tmpl           the tabbed dashboard
 conf/icone/                    optional favicons, copied to the webroot and linked if present
+design/ICONE-E-MARCHIO.md      icons and mark: decisions, rules, how to regenerate them
+design/esporta.py              regenerates icons, sprite and favicons from the sources below
+design/icone/icone.json        the icons' source; sprite.svg is what goes into the page
+design/marchio/                the mark as SVG, source of the favicons and the app icon
 certs/comune.inc               shared x509 extensions and sanity checks
 certs/crea-ca.sh               create the client CA (the service's authentication)
 certs/cert-server.sh           server TLS certificate (self-signed, or --csr for a real CA)

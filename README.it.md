@@ -176,8 +176,9 @@ qualsiasi cosa.
 | Chiudere anche la porta 80 | `PROTEGGI_80` (`nome` / `default` / `no`), poi `./install.sh --salta-pacchetti` |
 | Nomi dei tab legati all'utente | `PROFILI` (`si` / `no`), poi `./install.sh --salta-pacchetti` |
 | Azzerare il profilo di qualcuno | `rm $DIR_PROFILI/<cn>.json` — al prossimo accesso si ricrea |
-| Aggiungere i favicon | i file in `conf/icone/`, poi `./install.sh --salta-pacchetti` |
-| Spegnere i nomi automatici per tutti | `set -g set-titles off` in `conf/tmux-terminali.conf`, poi `./install.sh --salta-pacchetti` (per il solo browser basta il bottone 🏷) |
+| Aggiungere i favicon | `design/esporta.py` li genera in `conf/icone/` dal marchio in `design/marchio/`, poi `./install.sh --salta-pacchetti` |
+| Cambiare o aggiungere un'icona | `design/icone/icone.json`, poi `design/esporta.py --solo-icone` e `./install.sh --salta-pacchetti` (vedi `design/ICONE-E-MARCHIO.md`) |
+| Spegnere i nomi automatici per tutti | `set -g set-titles off` in `conf/tmux-terminali.conf`, poi `./install.sh --salta-pacchetti` (per il solo browser basta il bottone del nome dei tab) |
 | Controllare un'installazione in piedi | `sudo ./verifica.sh` — non modifica niente, e guarda anche il lato in chiaro |
 
 ## La dashboard
@@ -245,7 +246,7 @@ generico: sono tutte cose nate da un fastidio concreto.
   non aspetta la rete e funziona anche se il server non risponde.
 - **Nomi automatici**: il tab prende il nome che il terminale si da' da solo — il
   titolo che scrive l'applicazione (`vim: relazione.txt`, `ssh host`, `top`) oppure il
-  comando in esecuzione. Il bottone 🏷 in testata (o `Ctrl+Alt+N`) cicla fra i tre
+  comando in esecuzione. Il bottone del nome dei tab in testata (o `Ctrl+Alt+N`) cicla fra i tre
   modi — **Titolo**, **Comando**, **Nomi miei** — e la scelta vale **subito**, senza
   toccare il server: tmux manda tutti e due i campi insieme dentro lo stesso titolo, e
   a scegliere quale mostrare e' la pagina. La scelta resta su questo browser.
@@ -305,18 +306,18 @@ generico: sono tutte cose nate da un fastidio concreto.
   `PagSu`/`PagGiu`: la tastiera di sistema di un telefono non li ha, e senza di quelli
   in `tmux` o in `vi` non ci si muove e non si completa un nome di file. Tenendo premuto
   si ripetono, come farebbe un tasto vero. Compare da se' dove il puntatore e' un dito
-  (`pointer: coarse`) e si accende o si spegne col bottone **`⌨ Tasti`** in testata, con
+  (`pointer: coarse`) e si accende o si spegne col bottone **Tasti** in testata, con
   la scelta ricordata in `localStorage`. Col pannello congelato i tasti si spengono:
   passano da `term.input()`, che rispetta `disableStdin` come la tastiera vera.
-- **Modalita' storia**: il bottone `⇱ Storia` in testata entra e esce dalla copy-mode di
+- **Modalita' storia**: il bottone **Storia** in testata entra e esce dalla copy-mode di
   `tmux` (quella di `Ctrl-B [`), dove le frecce e `PagSu`/`PagGiu` scorrono lo
   scrollback invece di andare al programma. Il bottone sta in testata e non nel footer
   cosi' c'e' anche sul desktop, e si accende quando la modalita' e' attiva; nel footer
-  compare la spia `⇱ storia · le frecce scorrono`, che e' dove guardi mentre premi le
+  compare la spia `storia · le frecce scorrono`, che e' dove guardi mentre premi le
   frecce. Lo stato **non** e' il conto dei nostri click: si legge da cio' che tmux
   disegna, quindi la spia e' giusta anche se entri o esci con la tastiera vera.
-- **`A›a` / `a›A`** cambiano la dimensione dei caratteri del terminale: il verso lo
-  disegna la dimensione stessa delle due lettere, che non c'e' bisogno di tradurre. La scelta batte
+- **Testo piu' piccolo / piu' grande** cambiano la dimensione dei caratteri del terminale: il verso lo
+  disegna l'icona, una A grande che diventa piccola e il contrario, senza niente da tradurre. La scelta batte
   l'adattamento automatico e resta in `localStorage`; tornando esattamente sul valore
   che l'automatico avrebbe scelto la scelta si butta, e si ricomincia ad adattarsi allo
   schermo senza bisogno di un terzo bottone "auto". Sta in `localStorage` e **non** nel
@@ -350,7 +351,8 @@ generico: sono tutte cose nate da un fastidio concreto.
 
 Bootstrap arriva da CDN: **serve internet sul client** (non sul server). Per un
 ambiente chiuso, scaricare i due file nel webroot e correggere i due URL in
-`conf/index.html.tmpl`.
+`conf/index.html.tmpl`. Le icone invece non passano da nessun CDN: sono SVG in linea
+nella pagina, uno sprite che `install.sh` copia da `design/icone/sprite.svg`.
 
 ## Trappole, tutte verificate sul campo
 
@@ -587,6 +589,10 @@ conf/nginx-profili-map.inc     le map che ricavano l'identita' dal certificato
 conf/nginx-profili.inc         /io e /profili/: il profilo per utente, servito da nginx
 conf/index.html.tmpl           la dashboard a tab
 conf/icone/                    favicon opzionali, copiati nel webroot e linkati se presenti
+design/ICONE-E-MARCHIO.md      icone e marchio: decisioni, regole, come si rigenerano
+design/esporta.py              rigenera icone, sprite e favicon dai sorgenti qui sotto
+design/icone/icone.json        sorgente delle icone; sprite.svg e' quello che va nella pagina
+design/marchio/                il marchio in SVG, sorgente dei favicon e dell'icona app
 certs/comune.inc               estensioni x509 e controlli condivisi
 certs/crea-ca.sh               crea la CA client (l'autenticazione del servizio)
 certs/cert-server.sh           certificato TLS del server (autofirmato o CSR)
